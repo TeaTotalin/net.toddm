@@ -28,6 +28,7 @@ import net.toddm.cache.MemoryCacheProvider;
 import net.toddm.comm.CommManager;
 import net.toddm.comm.Request.RequestMethod;
 import net.toddm.comm.Response;
+import net.toddm.comm.ResponseCachingUtility;
 import net.toddm.comm.Work;
 import junit.framework.Assert;
 import junit.framework.TestCase;
@@ -72,6 +73,29 @@ public class MainTest extends TestCase {
         _Logger.trace(results);
 		assertNotNull(results);
 		assertTrue(results.length() > 0);
+	}
+
+	public void testRequestCachingHeaders() throws Exception {
+
+		CommManager.Builder commManagerBuilder = new CommManager.Builder();
+		CommManager commManager = commManagerBuilder.setName("TEST").create();
+
+		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, false);
+        assertNotNull(work);
+
+        Response response = work.get();
+        assertNotNull(response);
+        assertEquals(200, (int)response.getResponseCode());
+
+        // We happen to know our test request returns a TTL of 3600 seconds and an ETag value
+        Long ttl = ResponseCachingUtility.getTtlFromResponse(response);
+        assertNotNull(ttl);
+        assertEquals(3600000, ttl.longValue());
+        _Logger.trace("TTL from response headers: " + ttl);
+
+        String eTag = ResponseCachingUtility.getETagFromResponse(response);
+        assertNotNull(eTag);
+        _Logger.trace("ETag from response headers: " + eTag);
 	}
 
 	public void testRequestsWithCaching() throws Exception {

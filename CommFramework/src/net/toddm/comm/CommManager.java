@@ -63,7 +63,7 @@ public final class CommManager {
 	//
 	// TODO: GZIP support
 	//
-	// TODO: Result caching
+	// TODO: Handle 304 "Not Modified" caching related responses (should refresh timestamps on cache entry)
 
 	private static final Logger _Logger = LoggerFactory.getLogger(CommManager.class.getSimpleName());
 
@@ -159,8 +159,8 @@ public final class CommManager {
 						} catch (Exception e) {
 							_Logger.error("Response de-serialization from cache failed", e);
 						} finally {
-							if(inObj != null) { try { inObj.close(); } catch(Exception e) {} } // No-op on exception OK here
-							if(inStream != null) { try { inStream.close(); } catch(Exception e) {} } // No-op on exception OK here
+							if(inObj != null) { try { inObj.close(); } catch(Exception e) {} } // No-op an exception OK here
+							if(inStream != null) { try { inStream.close(); } catch(Exception e) {} } // No-op an exception OK here
 						}
 					}
 				}
@@ -447,12 +447,18 @@ public final class CommManager {
 						responseObjBytes = outStream.toByteArray();
 						if((responseObjBytes != null) && (responseObjBytes.length > 0)) {
 
-							// TODO: Wire up TTL and eTag values to the actual response headers (currently never expires and has no eTag)
+							// Check the response headers for a caching TTL
+							Long ttl = ResponseCachingUtility.getTtlFromResponse(response);
+							if(ttl == null) { ttl = Long.MAX_VALUE; }  // Long.MAX_VALUE indicates never expiring
+
+							// Check the response headers for an ETag value
+							String eTag = ResponseCachingUtility.getETagFromResponse(response);
+
 							CommManager.this._cacheProvider.add(
 									Integer.toString(this._work.getRequest().getId()), 
 									responseObjBytes, 
-									Long.MAX_VALUE, // Never expire, this will change soon to be based on the HTTP response headers
-									null, // No eTag, this will change soon to be based on the HTTP response headers
+									ttl, 
+									eTag, 
 									this._work.getRequest().getUri());
 							_Logger.info("{} Response for request {} added to cache", this._logPrefix, this._work.getRequest().getId());
 						}
