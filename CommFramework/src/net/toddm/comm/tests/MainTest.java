@@ -20,12 +20,15 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.toddm.cache.MemoryCacheProvider;
 import net.toddm.comm.CommManager;
+import net.toddm.comm.DefaultPriorityManagmentProvider;
+import net.toddm.comm.Priority.StartingPriority;
 import net.toddm.comm.Request.RequestMethod;
 import net.toddm.comm.Response;
 import net.toddm.comm.ResponseCachingUtility;
@@ -42,7 +45,7 @@ public class MainTest extends TestCase {
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").create();
 
-		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, false);
+		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
         assertNotNull(work);
 
         Response response = work.get();
@@ -63,7 +66,7 @@ public class MainTest extends TestCase {
 		headers.put("Content-Language", "en-US");
 		headers.put("Content-Type", "application/x-www-form-urlencoded");
 
-		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, headers, false);
+		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, headers, StartingPriority.MEDIUM, false);
         assertNotNull(work);
 
         Response response = work.get();
@@ -80,7 +83,7 @@ public class MainTest extends TestCase {
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").create();
 
-		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, false);
+		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
         assertNotNull(work);
 
         Response response = work.get();
@@ -106,7 +109,7 @@ public class MainTest extends TestCase {
 				.setCacheProvider(new MemoryCacheProvider())
 				.create();
 
-		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, true);
+		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, true);
         assertNotNull(work);
 
         Response response = work.get();
@@ -117,7 +120,7 @@ public class MainTest extends TestCase {
 		assertNotNull(results);
 		assertTrue(results.length() > 0);
 		
-		Work work2 = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, true);
+		Work work2 = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, true);
         assertNotNull(work2);
 
         Response response2 = work2.get();
@@ -138,16 +141,16 @@ public class MainTest extends TestCase {
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").create();
 
-		Work work1 = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, false);
+		Work work1 = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
         assertNotNull(work1);
         testRequests.add(work1);
 
-		Work work2 = commManager.enqueueWork(new URI("http://www.toddm.net/?paramA=Apple&paramB=Baby"), RequestMethod.GET, null, null, false);
+		Work work2 = commManager.enqueueWork(new URI("http://www.toddm.net/?paramA=Apple&paramB=Baby"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
         assertNotNull(work2);
         Assert.assertTrue(work1.getId() != work2.getId());
         testRequests.add(work2);
 
-		Work work3 = commManager.enqueueWork(new URI("http://www.toddm.net/?paramB=Baby&paramA=Apple"), RequestMethod.GET, null, null, false);
+		Work work3 = commManager.enqueueWork(new URI("http://www.toddm.net/?paramB=Baby&paramA=Apple"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
         assertNotNull(work3);
         Assert.assertTrue(work2.getId() == work3.getId());
         testRequests.add(work3);
@@ -157,6 +160,7 @@ public class MainTest extends TestCase {
 				RequestMethod.POST, 
 				new String("test POST data").getBytes("UTF-8"), 
 				null, 
+				StartingPriority.MEDIUM, 
 				false);
         assertNotNull(work4);
         Assert.assertTrue(work1.getId() != work4.getId());
@@ -167,6 +171,7 @@ public class MainTest extends TestCase {
 				RequestMethod.POST, 
 				new String("test POST data").getBytes("UTF-8"), 
 				null, 
+				StartingPriority.MEDIUM, 
 				false);
         assertNotNull(work5);
         Assert.assertTrue(work4.getId() == work5.getId());
@@ -177,6 +182,7 @@ public class MainTest extends TestCase {
 				RequestMethod.POST, 
 				new String("test POST data-").getBytes("UTF-8"), 
 				null, 
+				StartingPriority.MEDIUM, 
 				false);
         assertNotNull(work6);
         Assert.assertTrue(work5.getId() != work6.getId());
@@ -189,6 +195,50 @@ public class MainTest extends TestCase {
 			assertNotNull(response.getResponseBytes());
 			assertTrue(response.getResponseBytes().length > 0);
         }
+	}
+	
+	public void testPriorityQueuing() throws Exception {
+		CommManager.Builder commManagerBuilder = new CommManager.Builder();
+		final CommManager commManager = commManagerBuilder
+				.setName("TEST")
+				.setPriorityManagmentProvider(new DefaultPriorityManagmentProvider())
+				.create();
+
+		// Queue up a bunch of work with our-of-order priorities
+		int requestCount = 30;
+		final ConcurrentLinkedQueue<Work> finishedWork = new ConcurrentLinkedQueue<Work>();
+		for(int i = 0; i < requestCount; i++) {
+			final int iFinal = i;
+			(new Thread(new Runnable() {
+				@Override
+				public void run() {
+					try {
+						StartingPriority priority = StartingPriority.LOW;
+						if(iFinal < 10) {
+							priority = StartingPriority.HIGH;
+						} else if( (iFinal % 2) == 0 ) {
+							priority = StartingPriority.MEDIUM;
+						}
+						String url = String.format("https://raw.githubusercontent.com/eneko/data-repository/master/data/words.txt?arg=%1$d", iFinal);
+						Work work = commManager.enqueueWork(new URI(url), RequestMethod.GET, null, null, priority, false);
+						work.get();
+						finishedWork.add(work);
+					} catch(Exception e) { e.printStackTrace(); }
+				}
+			})).start();
+		}
+
+		// Wait for all the test requests to finish
+		while(finishedWork.size() < requestCount) { Thread.sleep(333); }
+		
+		// Ensure the requests finished in an order consistent with their priorities
+		Work previousWork = null;
+		for(Work work : finishedWork) {
+			if(previousWork != null) {
+				Assert.assertTrue(previousWork.getPriority().getValue() <= work.getPriority().getValue());
+			}
+			previousWork = work;
+		}
 	}
 
 }

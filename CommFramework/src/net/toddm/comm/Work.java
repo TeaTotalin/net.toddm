@@ -23,6 +23,8 @@ import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import net.toddm.comm.Priority.StartingPriority;
+
 /**
  * @author Todd S. Murchison
  */
@@ -46,6 +48,7 @@ public class Work implements Future<Response> {
 
 	private Status _state = Status.CREATED;
 	private volatile FutureTask<Response> _futureTask = null;
+	private final Priority _priority;
 	private final Request _request;
 	private Response _response = null;
 
@@ -54,12 +57,14 @@ public class Work implements Future<Response> {
 			Request.RequestMethod method, 
 			byte[] postData, 
 			Map<String, String> headers, 
+			StartingPriority priority, 
 			boolean cachingAllowed)
 	{
 
 		// Validate parameters
 		if(uri == null) { throw(new IllegalArgumentException("'uri' can not be NULL")); }
 		if(method == null) { throw(new IllegalArgumentException("'method' can not be NULL")); }
+		if(priority == null) { throw(new IllegalArgumentException("'priority' can not be NULL")); }
 		if((postData != null) && (!Request.RequestMethod.POST.equals(method))) {
 			throw(new IllegalArgumentException("'method' must be 'POST' when 'postData' is provided"));
 		}
@@ -67,10 +72,14 @@ public class Work implements Future<Response> {
 		// Set our data members
 		this._state = Status.CREATED;
 		this._request = new Request(uri, method, postData, headers, cachingAllowed);
+		this._priority = new Priority(this, priority);
 	}
 
 	/** Returns the {@link Request} instance associated with this {@link Work} instance. */
 	public Request getRequest() { return(this._request); }
+
+	/** Returns the {@link Priority} of this {@link Work} instance. */
+	public Priority getPriority() { return(this._priority); }
 
 	/** Returns the current state of this {@link Work} instance */
 	public Status getState() { return(this._state); }

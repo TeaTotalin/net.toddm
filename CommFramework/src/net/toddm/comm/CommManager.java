@@ -30,6 +30,8 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.Locale;
 import java.util.Map;
@@ -40,6 +42,7 @@ import java.util.concurrent.FutureTask;
 
 import net.toddm.cache.CacheEntry;
 import net.toddm.cache.CacheProvider;
+import net.toddm.comm.Priority.StartingPriority;
 import net.toddm.comm.Request.RequestMethod;
 
 import org.slf4j.Logger;
@@ -71,14 +74,15 @@ public final class CommManager {
 	// For CommManager access we are going to use a Builder -> Setters -> Create pattern. Instances of CommManager 
 	// are created by first creating an instance of CommManager.Builder, calling setters on that Builder instance, 
 	// and then calling create() on that Builder instance, which returns a CommManager instance.
-	private CommManager(String name, CacheProvider cacheProvider) {
+	private CommManager(String name, CacheProvider cacheProvider, PriorityManagmentProvider priorityManagmentProvider) {
 		this._cacheProvider = cacheProvider;
+		this._priorityManagmentProvider = priorityManagmentProvider;
 		this.startWorking(name);
 	}
 	//------------------------------
 
 	// TODO: Get configuration values from a config system
-	private final int _maxSimultaneousRequests = 2;
+	private final int _maxSimultaneousRequests = 1;
 	private final int _connectTimeoutMilliseconds = 30000;
 	private final int _readTimeoutMilliseconds = 30000;
 
@@ -95,6 +99,7 @@ public final class CommManager {
 	private Object _workManagmentLock = new Object();
 
 	private final CacheProvider _cacheProvider;
+	private final PriorityManagmentProvider _priorityManagmentProvider;
 
 	/**
 	 * Enters a request into the communications framework for processing. The {@link Work} instance returned can be used
@@ -111,10 +116,11 @@ public final class CommManager {
 			Request.RequestMethod method, 
 			byte[] postData, 
 			Map<String, String> headers, 
+			StartingPriority priority, 
 			boolean cachingAllowed) 
 	{
 		// This constructor will validate all the arguments
-		Work newWork = new Work(uri, method, postData, headers, cachingAllowed);
+		Work newWork = new Work(uri, method, postData, headers, priority, cachingAllowed);
 		Work resultWork = null;
 		_Logger.info("[thread:{}] enqueueWork() start", Thread.currentThread().getId());
 
@@ -276,12 +282,15 @@ public final class CommManager {
 
 						// TODO: Implement retry and retry management
 
-						// Check current work to see if can start more work
+						// Check current work to see if we can start more work
 						while((_activeWork.size() < _maxSimultaneousRequests) && (_queuedWork.size() > 0)) {
-							
-							// TODO: Deal with request priority. We'd like a pluggable approach to prioritizing 
-							// TODO: the queue, but what about guarding against starvation based on age, etc.?
-							
+
+							// Update request priorities as needed using the provided PriorityManagmentProvider implementation
+							for(Work work : _queuedWork) { CommManager.this._priorityManagmentProvider.promotePriority(work.getPriority()); }
+
+							// Sort the current priority queue using the provided PriorityManagmentProvider implementation and get the next item
+							Collections.sort(_queuedWork, CommManager.this._workComparator);
+
 							// Grab the next request, move it to the active queue, and start the work
 							Work workToStart = _queuedWork.removeFirst();
 							_activeWork.add(workToStart);
@@ -314,6 +323,16 @@ public final class CommManager {
 		}
 
 	}
+
+	/** A simple {@link Comparator} implementation for {@link Work} instances that wraps the Comparator provided by the current {@link PriorityManagmentProvider}. */
+	private Comparator<Work> _workComparator = new Comparator<Work>() {
+		@Override
+		public int compare(Work lhs, Work rhs) {
+			if(lhs == null) { throw(new IllegalArgumentException("'lhs' can not be NULL")); }
+			if(rhs == null) { throw(new IllegalArgumentException("'rhs' can not be NULL")); }
+			return(CommManager.this._priorityManagmentProvider.getPriorityComparator().compare(lhs.getPriority(), rhs.getPriority()));
+		}
+	};
 
 	/** An implementation of {@link Callable} that makes the actual network request and gets the response */
 	private class WorkCallable implements Callable<Response> {
@@ -524,11 +543,14 @@ public final class CommManager {
 		
 		private String _name = "default";
 		private CacheProvider _cacheProvider = null;
+		private PriorityManagmentProvider _priorityManagmentProvider = null;
 
 		public Builder() {
 
 			// TODO: This is where we configure any sane defaults for pluggable sub-systems like caching provider, 
 			// TODO: request priority, failure policies, configuration provider, response body handling, etc.
+			
+			this._priorityManagmentProvider = new DefaultPriorityManagmentProvider();
 		}
 
 		/**
@@ -551,13 +573,23 @@ public final class CommManager {
 		}
 
 		/**
+		 * Sets the {@link PriorityManagmentProvider} instance used by the comm framework for work priority queue management.
+		 * The priority provider set here will be used by the {@link CommManager} instances subsequently created via {@link Builder#create()}.
+		 * If not set then {@link DefaultPriorityManagmentProvider} is used, which provides a simple age based anti queue starvation implementation.
+		 */
+		public Builder setPriorityManagmentProvider(PriorityManagmentProvider priorityManagmentProvider) {
+			this._priorityManagmentProvider = priorityManagmentProvider;
+			return(this);
+		}
+
+		/**
 		 * Creates a new {@link CommManager} instance based on the values currently configured on this {@link Builder} instance.
 		 * @return A {@link CommManager} instance.
 		 */
 		public CommManager create() {
 
 			// Create a CommManager instance
-			return(new CommManager(this._name, this._cacheProvider));
+			return(new CommManager(this._name, this._cacheProvider, this._priorityManagmentProvider));
 		}
 
 	}
