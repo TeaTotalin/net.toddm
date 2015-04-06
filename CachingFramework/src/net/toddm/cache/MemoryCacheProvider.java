@@ -19,6 +19,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -30,15 +31,30 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class MemoryCacheProvider implements CacheProvider {
 
-	private final ConcurrentHashMap<String, CacheEntry> _keyToEntry = new ConcurrentHashMap<String, CacheEntry>();
+	private static final String _DefaultNamespace = "e98fa3ee-cb8d-4e37-8b43-adb04036031a";
+
+	private final String _namespace;
 	private final CacheEntryAgeComparator _cacheEntryAgeComparator = new CacheEntryAgeComparator();
+	private final ConcurrentHashMap<String, CacheEntry> _keyToEntry = new ConcurrentHashMap<String, CacheEntry>();
+	
+	private String getLookupKey(String key) {
+		return(String.format(Locale.US, "%1$s:%2$s", this._namespace, key));
+	}
+
+	/**
+	 * Create an instance of {@link MemoryCacheProvider} with the given namespace.
+	 * @param namespace <b>OPTIONAL</b> If NULL then the cache instance is created in the default namespace.
+	 */
+	public MemoryCacheProvider(String namespace) {
+		this._namespace = (((namespace == null) || (namespace.length() <= 0)) ? _DefaultNamespace : namespace);
+	}
 
 	/** {@inheritDoc} */
 	@Override
 	public void add(String key, String value, long ttl, String eTag, URI sourceUri) {
 
 		// The constructor used in the line below does argument validation
-		this._keyToEntry.put(key, new CacheEntry(key, value, ttl, eTag, sourceUri));
+		this._keyToEntry.put(this.getLookupKey(key), new CacheEntry(key, value, ttl, eTag, sourceUri));
 	}
 
 	/** {@inheritDoc} */
@@ -46,14 +62,14 @@ public class MemoryCacheProvider implements CacheProvider {
 	public void add(String key, byte[] value, long ttl, String eTag, URI sourceUri) {
 
 		// The constructor used in the line below does argument validation
-		this._keyToEntry.put(key, new CacheEntry(key, value, ttl, eTag, sourceUri));
+		this._keyToEntry.put(this.getLookupKey(key), new CacheEntry(key, value, ttl, eTag, sourceUri));
 	}
 
 	/** {@inheritDoc} */
 	@Override
 	public CacheEntry get(String key, boolean allowExpired) {
 		if((key == null) || (key.length() <= 0)) { throw(new IllegalArgumentException("'key' can not be NULL or empty")); }
-		CacheEntry result = this._keyToEntry.get(key);
+		CacheEntry result = this._keyToEntry.get(this.getLookupKey(key));
 		if((result != null) && (!allowExpired) && (result.hasExpired())) {
 			return(null);
 		}
@@ -72,7 +88,7 @@ public class MemoryCacheProvider implements CacheProvider {
 				}
 			}
 			for(String killKey : keysToKill) {
-				this._keyToEntry.remove(killKey);
+				this._keyToEntry.remove(this.getLookupKey(killKey));
 			}
 		}
 		return(results);
@@ -82,7 +98,7 @@ public class MemoryCacheProvider implements CacheProvider {
 	@Override
 	public void remove(String key) {
 		if((key == null) || (key.length() <= 0)) { throw(new IllegalArgumentException("'key' can not be NULL or empty")); }
-		this._keyToEntry.remove(key);
+		this._keyToEntry.remove(this.getLookupKey(key));
 	}
 
 	/** {@inheritDoc} */

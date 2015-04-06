@@ -32,7 +32,7 @@ public class MainTest extends TestCase {
 		_Logger.debug("#######################################");
 
 		// Ensure we have an empty test cache
-		CacheProvider cacheProvider = new MemoryCacheProvider();
+		CacheProvider cacheProvider = new MemoryCacheProvider("TestNamespace");
 		this.validateCachingFunctionality(cacheProvider);
 	}
 

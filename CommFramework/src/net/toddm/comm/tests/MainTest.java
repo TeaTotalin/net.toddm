@@ -198,6 +198,8 @@ public class MainTest extends TestCase {
 	}
 	
 	public void testPriorityQueuing() throws Exception {
+		
+		// TODO: This test case SUCKS.  Update to something better when I have time.
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		final CommManager commManager = commManagerBuilder
 				.setName("TEST")
@@ -207,11 +209,13 @@ public class MainTest extends TestCase {
 		// Queue up a bunch of work with our-of-order priorities
 		int requestCount = 30;
 		final ConcurrentLinkedQueue<Work> finishedWork = new ConcurrentLinkedQueue<Work>();
+		final ConcurrentLinkedQueue<Work> failedWork = new ConcurrentLinkedQueue<Work>();
 		for(int i = 0; i < requestCount; i++) {
 			final int iFinal = i;
 			(new Thread(new Runnable() {
 				@Override
 				public void run() {
+					Work work = null;
 					try {
 						StartingPriority priority = StartingPriority.LOW;
 						if(iFinal < 10) {
@@ -220,17 +224,28 @@ public class MainTest extends TestCase {
 							priority = StartingPriority.MEDIUM;
 						}
 						String url = String.format("https://raw.githubusercontent.com/eneko/data-repository/master/data/words.txt?arg=%1$d", iFinal);
-						Work work = commManager.enqueueWork(new URI(url), RequestMethod.GET, null, null, priority, false);
+						work = commManager.enqueueWork(new URI(url), RequestMethod.GET, null, null, priority, false);
 						work.get();
 						finishedWork.add(work);
-					} catch(Exception e) { e.printStackTrace(); }
+					} catch(Exception e) {
+						e.printStackTrace();
+						failedWork.add(work);
+					}
 				}
 			})).start();
 		}
 
 		// Wait for all the test requests to finish
-		while(finishedWork.size() < requestCount) { Thread.sleep(333); }
-		
+		int maxWaitCount = 60;
+		while(((finishedWork.size() + failedWork.size()) < requestCount) && (maxWaitCount > 0)) {
+			Thread.sleep(1500);
+			maxWaitCount--;
+		}
+		_Logger.trace("finishedWork.size:%1$d failedWork.size:%2$d", finishedWork.size(), failedWork.size());
+		if((finishedWork.size() + failedWork.size()) < requestCount) {
+			Assert.fail("Not all test requests finished in time!");
+		}
+
 		// Ensure the requests finished in an order consistent with their priorities
 		Work previousWork = null;
 		for(Work work : finishedWork) {
