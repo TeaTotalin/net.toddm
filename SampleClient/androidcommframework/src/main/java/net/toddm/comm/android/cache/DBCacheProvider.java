@@ -125,6 +125,16 @@ public class DBCacheProvider extends SQLiteOpenHelper implements CacheProvider {
     return null;
   }
 
+  @Override
+  public int size(boolean b) {
+    return 0;
+  }
+
+  @Override
+  public boolean containsKey(String s, boolean b) {
+    return false;
+  }
+
   /** {@inheritDoc} */
   @Override
   public void remove(String key) {

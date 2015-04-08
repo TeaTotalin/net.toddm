@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -79,19 +80,37 @@ public class MemoryCacheProvider implements CacheProvider {
 	/** {@inheritDoc} */
 	@Override
 	public List<CacheEntry> getAll(boolean allowExpired) {
-		List<CacheEntry> results = new ArrayList<CacheEntry>(this._keyToEntry.values());
-		if(!allowExpired) {
-			List<String> keysToKill = new ArrayList<String>(this._keyToEntry.size());
-			for(CacheEntry entry : this._keyToEntry.values()) {
-				if(entry.hasExpired()) {
-					keysToKill.add(entry.getKey());
-				}
-			}
-			for(String killKey : keysToKill) {
-				this._keyToEntry.remove(this.getLookupKey(killKey));
+		List<CacheEntry> results = new ArrayList<CacheEntry>(this._keyToEntry.size());
+		for(CacheEntry entry : this._keyToEntry.values()) {
+			if(allowExpired) {
+				results.add(entry);
+			} else if(!entry.hasExpired()) {
+				results.add(entry);
 			}
 		}
 		return(results);
+	}
+
+	/** {@inheritDoc} */
+	@Override
+	public int size(boolean allowExpired) {
+		if(allowExpired) {
+			return(this._keyToEntry.size());
+		} else {
+			return(this.getAll(allowExpired).size());
+		}
+	}
+
+	/** {@inheritDoc} */
+	@Override
+	public boolean containsKey(String key, boolean allowExpired) {
+		if((key == null) || (key.length() <= 0)) { throw(new IllegalArgumentException("'key' can not be NULL or empty")); }
+		if(allowExpired) {
+			return(this._keyToEntry.containsKey(this.getLookupKey(key)));
+		} else {
+			CacheEntry entry = this._keyToEntry.get(this.getLookupKey(key));
+			return((entry != null) && (!entry.hasExpired()));
+		}
 	}
 
 	/** {@inheritDoc} */

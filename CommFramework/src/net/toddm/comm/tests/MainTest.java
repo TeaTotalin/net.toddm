@@ -106,7 +106,7 @@ public class MainTest extends TestCase {
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder
 				.setName("TEST")
-				.setCacheProvider(new MemoryCacheProvider())
+				.setCacheProvider(new MemoryCacheProvider("testCache"))
 				.create();
 
 		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, true);

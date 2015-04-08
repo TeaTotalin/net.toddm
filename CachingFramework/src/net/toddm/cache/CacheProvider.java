@@ -60,6 +60,21 @@ public interface CacheProvider {
 	 */
 	public List<CacheEntry> getAll(boolean allowExpired);
 
+	/**
+	 * Returns the size (the total number of current entries) of the cache.
+	 * @param allowExpired If set, this method will count expired cache entries as well.
+	 * @return The size (the total number of current entries) of the cache.
+	 */
+	public int size(boolean allowExpired);
+
+	/**
+	 * Returns <b>true</b> if the cache contains an entry for the given key, <b>false</b> otherwise.
+	 * @param key The unique key of the cache entry to look for.
+	 * @param allowExpired If set, this method can return <b>true</b> for expired cache entries.
+	 * @return <b>true</b> if the cache contains an entry for the given key.
+	 */
+	public boolean containsKey(String key, boolean allowExpired);
+
 	/** Removes the cache entry with the given key, if there is one. */
 	public void remove(String key);
 

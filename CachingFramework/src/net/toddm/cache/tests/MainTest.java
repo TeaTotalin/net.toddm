@@ -40,11 +40,13 @@ public class MainTest extends TestCase {
 
 		cacheProvider.removeAll();
 		assertEquals(0, cacheProvider.getAll(true).size());
+		assertEquals(0, cacheProvider.size(true));
 
 		cacheProvider.add("key1", "value1: ┤╥,65♀635L2☻~32┐2◙⌠1j32┐53K_", 1L, null, null);
 		Thread.sleep(2);
 		CacheEntry entry = cacheProvider.get("key1", true);
 		assertEquals(1, cacheProvider.getAll(true).size());
+		assertEquals(1, cacheProvider.size(true));
 		assertNotNull(entry);
 		assertTrue(entry.hasExpired());
 		assertEquals("key1", entry.getKey());
@@ -57,6 +59,7 @@ public class MainTest extends TestCase {
 		Thread.sleep(2);
 		entry = cacheProvider.get("key2", true);
 		assertEquals(2, cacheProvider.getAll(true).size());
+		assertEquals(2, cacheProvider.size(true));
 		assertNotNull(entry);
 		assertFalse(entry.hasExpired());
 		assertEquals("key2", entry.getKey());
@@ -67,30 +70,46 @@ public class MainTest extends TestCase {
 		entry = cacheProvider.get("key3", true);
 		assertNotNull(entry);
 		assertEquals(3, cacheProvider.getAll(true).size());
+		assertEquals(3, cacheProvider.size(true));
 
 		cacheProvider.add("key4", "value4", 1000000L, null, null);
 		Thread.sleep(2);
 		entry = cacheProvider.get("key4", true);
 		assertNotNull(entry);
 		assertEquals(4, cacheProvider.getAll(true).size());
+		assertEquals(4, cacheProvider.size(true));
 
+		assertTrue(cacheProvider.containsKey("key3", true));
 		cacheProvider.remove("key3");
 		entry = cacheProvider.get("key3", true);
 		assertNull(entry);
 		assertEquals(3, cacheProvider.getAll(true).size());
+		assertEquals(3, cacheProvider.size(true));
+		assertFalse(cacheProvider.containsKey("key3", true));
 
 		cacheProvider.trimLru(1);
 		assertEquals(1, cacheProvider.getAll(true).size());
+		assertEquals(1, cacheProvider.size(true));
 		entry = cacheProvider.get("key4", true);
 		assertNotNull(entry);
 
 		cacheProvider.removeAll();
+		cacheProvider.add("key5", "value5", 1L, null, null);
+		Thread.sleep(2);
+		assertEquals(1, cacheProvider.size(true));
+		assertEquals(0, cacheProvider.size(false));
+		assertTrue(cacheProvider.containsKey("key5", true));
+		assertFalse(cacheProvider.containsKey("key5", false));
+
+		cacheProvider.removeAll();
 		assertEquals(0, cacheProvider.getAll(true).size());
+		assertEquals(0, cacheProvider.size(true));
 
 		final byte[] testBytes = new byte[] { (byte)204, 113, 108, 122, 3, (byte)232, 112, 50, 17, 63 };
 		cacheProvider.add("key1", testBytes, 1L, null, null);
 		entry = cacheProvider.get("key1", true);
 		assertEquals(1, cacheProvider.getAll(true).size());
+		assertEquals(1, cacheProvider.size(true));
 		assertNotNull(entry);
 		assertEquals("key1", entry.getKey());
 		assertEquals(1L, (long)entry.getTtl());
@@ -103,6 +122,7 @@ public class MainTest extends TestCase {
 
 		cacheProvider.removeAll();
 		assertEquals(0, cacheProvider.getAll(true).size());
+		assertEquals(0, cacheProvider.size(true));
 	}
 
 }
