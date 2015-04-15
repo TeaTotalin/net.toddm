@@ -88,6 +88,7 @@ public class Response implements Serializable {
 		return((this._responseCode == 200) || (this._responseCode == 201));
 	}
 
+	/** Returns the unique ID of the {@link Request} that generated this {@link Response}. */
 	public Integer getRequestId() {
 		return(this._requestId);
 	}

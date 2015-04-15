@@ -17,7 +17,11 @@ package net.toddm.comm;
 
 import java.util.Comparator;
 
-/** Priority management providers implement this interface in order to control priority queue functionality such as priority promotion and priority queue sorting. */
+/**
+ * Priority management providers implement this interface in order to control priority queue functionality such as priority promotion and priority queue sorting.
+ * <p>
+ * @author Todd S. Murchison
+ */
 public interface PriorityManagmentProvider {
 
 	/**

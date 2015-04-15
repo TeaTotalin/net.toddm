@@ -90,10 +90,22 @@ public interface CacheProvider {
 	public boolean removeAll();
 
 	/**
-	 * Enforces a Least Recently Used cap on the cache by removing the oldest 
-	 * entries if needed until the cache contains at most 'maxEntries' entries.
-	 * @return <b>true</b> if the operation was successful, <b>false</b> otherwise.
+	 * Enforces a Least Recently Used cap on the cache by removing the 
+	 * oldest entries if needed until the LRU cap size is reached.
 	 */
-	public boolean trimLru(int maxEntries);
+	public boolean trimLru();
+
+	/**
+	 * Sets the LRU cap cache size for use when enforcing the LRU cap.
+	 * Note that it is up to client code to call {@link #trimLru()} to enforce this limit.
+	 * @param maxSize The maximum number of entries the cache should contain after a call to {@link #trimLru()}.
+	 */
+	public void setLruCap(int maxCacheSize);
+
+	/**
+	 * Returns the LRU cap cache size for use when enforcing the LRU cap.
+	 * Note that it is up to client code to call {@link #trimLru()} to enforce this limit.
+	 */
+	public int getLruCap();
 
 }

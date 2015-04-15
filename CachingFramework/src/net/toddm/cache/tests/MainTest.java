@@ -97,7 +97,8 @@ public class MainTest extends TestCase {
 		assertEquals(3, cacheProvider.size(true));
 		assertFalse(cacheProvider.containsKey("key3", true));
 
-		cacheProvider.trimLru(1);
+		cacheProvider.setLruCap(1);
+		cacheProvider.trimLru();
 		assertEquals(1, cacheProvider.getAll(true).size());
 		assertEquals(1, cacheProvider.size(true));
 		entry = cacheProvider.get("key4", true);

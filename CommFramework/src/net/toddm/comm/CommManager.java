@@ -56,8 +56,6 @@ public final class CommManager {
 	// TODO: failure policies / off-line modes
 	//			- should cover graceful recovery from service outage, etc.
 	//
-	// TODO: priority queue and cache should be pluggable implementations
-	//
 	// Uses SLF4J. To use in Android include SLF4J Android (http://www.slf4j.org/android/) in your Android project.
 	//
 	// TODO: https://github.com/Talvish/Tales/tree/master/product
@@ -66,7 +64,7 @@ public final class CommManager {
 	//
 	// TODO: GZIP support
 	//
-	// TODO: Handle 304 "Not Modified" caching related responses (should refresh timestamps on cache entry)
+	// TODO: Properly support SSL!
 
 	private static final Logger _Logger = LoggerFactory.getLogger(CommManager.class.getSimpleName());
 
@@ -298,9 +296,7 @@ public final class CommManager {
 							_requestWorkExecutorService.execute(workToStart.getFutureTask());
 						}
 
-						// TODO: Other work (result cache management such as LRU?, etc.)
-
-						// TODO: Calculate sleep time based on pending work
+						// TODO: Calculate sleep time based on pending retry work
 
 						// Sleep until there is more work to do
 						_Logger.debug(String.format(
@@ -445,7 +441,7 @@ public final class CommManager {
 				// Construct the response instance
 				response = new Response(
 						buffer.toByteArray(), 
-						urlConnection.getHeaderFields(),  // TODO: Serialization of the Map type returned here fails under Android
+						urlConnection.getHeaderFields(), 
 						urlConnection.getResponseCode(), 
 						this._work.getRequest().getId(),
 						(int)(System.currentTimeMillis() - start));
@@ -473,6 +469,9 @@ public final class CommManager {
 							// Check the response headers for an ETag value
 							String eTag = ResponseCachingUtility.getETagFromResponse(response);
 
+							// TODO: Send eTag request header (when we have a stale cache entry)
+							// TODO: Handle 304 "Not Modified" caching related responses (should refresh timestamps on cache entry)
+
 							CommManager.this._cacheProvider.add(
 									Integer.toString(this._work.getRequest().getId()), 
 									responseObjBytes, 
@@ -480,6 +479,9 @@ public final class CommManager {
 									eTag, 
 									this._work.getRequest().getUri());
 							_Logger.info("{} Response for request {} added to cache", this._logPrefix, this._work.getRequest().getId());
+
+							// We will go ahead and enforce LRU here as we may have just added a new cache entry
+							CommManager.this._cacheProvider.trimLru();
 						}
 					} catch(Exception e) {
 						_Logger.error("Response serialization to cache failed", e);

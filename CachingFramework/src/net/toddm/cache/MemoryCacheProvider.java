@@ -36,7 +36,13 @@ public class MemoryCacheProvider implements CacheProvider {
 	private final String _namespace;
 	private final CacheEntryAgeComparator _cacheEntryAgeComparator = new CacheEntryAgeComparator();
 	private final ConcurrentHashMap<String, CacheEntry> _keyToEntry = new ConcurrentHashMap<String, CacheEntry>();
-	
+
+	/**
+	 * This should have a sane default value, though the default here is really a guess without any knowledge of what is 
+	 * being cached (seize of each cache entry). We will default to a "smaller" number for in-memory caching.
+	 */
+	private int _lruCap = 20;
+
 	private String getLookupKey(String key) {
 		return(String.format(Locale.US, "%1$s:%2$s", this._namespace, key));
 	}
@@ -131,15 +137,27 @@ public class MemoryCacheProvider implements CacheProvider {
 
 	/** {@inheritDoc} */
 	@Override
-	public boolean trimLru(int maxEntries) {
+	public boolean trimLru() {
 		List<CacheEntry> entries = this.getAll(true);
-		if(entries.size() > maxEntries) {
+		if(entries.size() > this._lruCap) {
 			Collections.sort(entries, this._cacheEntryAgeComparator);
-			for(int i = maxEntries; i < entries.size(); i++) {
+			for(int i = this._lruCap; i < entries.size(); i++) {
 				this.remove(entries.get(i).getKey());
 			}
 		}
 		return(true);
+	}
+
+	/** {@inheritDoc} */
+	@Override
+	public void setLruCap(int maxCacheSize) {
+		this._lruCap = maxCacheSize;
+	}
+
+	/** {@inheritDoc} */
+	@Override
+	public int getLruCap() {
+		return(this._lruCap);
 	}
 
 }

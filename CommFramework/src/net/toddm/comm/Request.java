@@ -33,8 +33,6 @@ public class Request {
 	
 	// TODO: Enforce a maximum total number of redirects allowed
 
-	// TODO: Indicate if it is OK to cache results, get results from cache, etc.
-
 	/** HTTP request methods supported by the comm framework. */
 	public enum RequestMethod {
 		/** Standard HTTP GET */
@@ -57,6 +55,9 @@ public class Request {
 	private final Map<String, List<String>> _queryParameters;
 	private final Integer _id;
 	private final boolean _cachingAllowed;
+
+	private int _retryCountFromFailure = 0;
+	private int _retryCountFromResponse = 0;
 
 	/** 
 	 * Creates an instance of {@link Request}.
@@ -129,6 +130,22 @@ public class Request {
 		if(this._id == null) { throw(new IllegalStateException("The ID has not been calculated yet")); }
 		return(this._id.intValue());
 	}
+
+	/** Increments the count of the total number of times this request has been retried due to a failure (socket timeout, etc.). */
+	protected void incrementRetryCountFromFailure() {
+		this._retryCountFromFailure++;
+	}
+
+	/** Increments the count of the total number of times this request has been retried due to a response (503 response code, etc.). */
+	protected void incrementRetryCountFromResponse() {
+		this._retryCountFromResponse++;
+	}
+
+	/** Returns the total number of times this request has been retried due to a failure (socket timeout, etc.). */
+	public int getRetryCountFromFailure() { return(this._retryCountFromFailure); }
+
+	/** Returns the total number of times this request has been retried due to a response (503 response code, etc.). */
+	public int getRetryCountFromResponse() { return(this._retryCountFromResponse); }
 
 	/**
 	 * The hash code of this {@link Request}. Requests have the same hash code and are considered equal 

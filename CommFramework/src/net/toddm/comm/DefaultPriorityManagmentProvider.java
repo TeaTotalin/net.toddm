@@ -20,12 +20,16 @@ import java.util.Comparator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** A simple implementation of {@link PriorityProvider} that guards against starvation with simple timestamps based priority promotion. */
+/**
+ * A simple implementation of {@link PriorityProvider} that guards against starvation with simple timestamps based priority promotion.
+ * <p>
+ * @author Todd S. Murchison
+ */
 public class DefaultPriorityManagmentProvider implements PriorityManagmentProvider {
 
 	private static final Logger _Logger = LoggerFactory.getLogger(DefaultPriorityManagmentProvider.class.getSimpleName());
 
-	// TODO: This value should probably come form configuration
+	// TODO: This value should probably come from configuration
 	private static long _PromotionIntervalInMilliseconds = 60000;  // One minute
 
 	/**
