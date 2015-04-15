@@ -1,0 +1,3 @@
+
+Currently, if a request fails (at least with a socket timeout - just turn on airplane mode) the request never gets cleared out.  It remains in the queue and subsequent 
+attempts to run the request result in the wait handle to the "already queued" request being returned.  This will get cleaned up once I implement retry.

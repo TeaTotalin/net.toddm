@@ -15,6 +15,8 @@
 // ***************************************************************************
 package net.toddm.cache.tests;
 
+import java.util.List;
+
 import net.toddm.cache.CacheEntry;
 import net.toddm.cache.CacheProvider;
 import net.toddm.cache.MemoryCacheProvider;
@@ -33,10 +35,15 @@ public class MainTest extends TestCase {
 
 		// Ensure we have an empty test cache
 		CacheProvider cacheProvider = new MemoryCacheProvider("TestNamespace");
-		this.validateCachingFunctionality(cacheProvider);
+		validateCachingFunctionality(cacheProvider);
 	}
 
-	private void validateCachingFunctionality(CacheProvider cacheProvider) throws Exception {
+	/**
+	 * This testing method is public so that any implementers of CacheProvider can make use of it to test the correctness of the implementation.
+	 * <p>
+	 * @param cacheProvider An instance of an implementation of of the {@link CacheProvider} interface to be tested by this method.
+	 */
+	public static void validateCachingFunctionality(CacheProvider cacheProvider) throws Exception {
 
 		cacheProvider.removeAll();
 		assertEquals(0, cacheProvider.getAll(true).size());
@@ -54,6 +61,9 @@ public class MainTest extends TestCase {
 
 		entry = cacheProvider.get("key1", false);
 		assertNull(entry);
+	    List<CacheEntry> entries = cacheProvider.getAll(false);
+	    assertNotNull(entries);
+	    assertEquals(0, entries.size());
 
 		cacheProvider.add("key2", "value2", 1000000L, null, null);
 		Thread.sleep(2);

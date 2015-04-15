@@ -30,8 +30,9 @@ public interface CacheProvider {
 	 * @param ttl The Time To Live (TTL) of the cache entry.
 	 * @param eTag An entity tag value for the cache entry.
 	 * @param sourceUri A source URI for the cache entry.
+	 * @return <b>true</b> if the add or update operation was successful, <b>false</b> otherwise.
 	 */
-	public void add(String key, String value, long ttl, String eTag, URI sourceUri);
+	public boolean add(String key, String value, long ttl, String eTag, URI sourceUri);
 
 	/**
 	 * Adds an entry to the cache if one with the given key does not already exist. If there is a preexisting entry with the given key 
@@ -42,8 +43,9 @@ public interface CacheProvider {
 	 * @param ttl The Time To Live (TTL) of the cache entry.
 	 * @param eTag An entity tag value for the cache entry.
 	 * @param sourceUri A source URI for the cache entry.
+	 * @return <b>true</b> if the add or update operation was successful, <b>false</b> otherwise.
 	 */
-	public void add(String key, byte[] value, long ttl, String eTag, URI sourceUri);
+	public boolean add(String key, byte[] value, long ttl, String eTag, URI sourceUri);
 
 	/**
 	 * Returns the {@link CacheEntry} with the given key. If no entry is found for the given key then <b>null</b> is returned.
@@ -75,16 +77,23 @@ public interface CacheProvider {
 	 */
 	public boolean containsKey(String key, boolean allowExpired);
 
-	/** Removes the cache entry with the given key, if there is one. */
-	public void remove(String key);
+	/**
+	 * Removes the cache entry with the given key, if there is one.
+	 * @return <b>true</b> if the operation was successful, <b>false</b> otherwise.
+	 */
+	public boolean remove(String key);
 
-	/** Removes all the entries from the cache, leaving an empty cache. */
-	public void removeAll();
+	/**
+	 * Removes all the entries from the cache, leaving an empty cache.
+	 * @return <b>true</b> if the operation was successful, <b>false</b> otherwise.
+	 */
+	public boolean removeAll();
 
 	/**
 	 * Enforces a Least Recently Used cap on the cache by removing the oldest 
 	 * entries if needed until the cache contains at most 'maxEntries' entries.
+	 * @return <b>true</b> if the operation was successful, <b>false</b> otherwise.
 	 */
-	public void trimLru(int maxEntries);
+	public boolean trimLru(int maxEntries);
 
 }

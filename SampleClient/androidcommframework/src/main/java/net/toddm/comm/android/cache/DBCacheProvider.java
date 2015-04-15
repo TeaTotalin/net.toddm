@@ -15,14 +15,22 @@
 // ***************************************************************************
 package net.toddm.comm.android.cache;
 
+import android.content.ContentValues;
 import android.content.Context;
+import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteDoneException;
+import android.database.sqlite.SQLiteException;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.database.sqlite.SQLiteStatement;
 
 import net.toddm.cache.CacheEntry;
+import net.toddm.cache.CacheException;
 import net.toddm.cache.CacheProvider;
 
 import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,7 +54,7 @@ public class DBCacheProvider extends SQLiteOpenHelper implements CacheProvider {
     super(context, databaseName, null, databaseVersion);
     this._databaseName = databaseName;
     this._databaseVersion = databaseVersion;
-    _Logger.trace("Using caching database '%1$s'", databaseName);
+    _Logger.trace("Using caching database '{}'", databaseName);
   }
 
   public static DBCacheProvider getInstance(Context context, String namespace, int databaseVersion) {
@@ -67,20 +75,21 @@ public class DBCacheProvider extends SQLiteOpenHelper implements CacheProvider {
 
   private final String _databaseName;
   private final int _databaseVersion;
-
   private volatile Object _databaseAccessLock = new Object();
+
+  private static final String[] _IDColumn = new String[] { "id" };
   private static final String _DatabaseTableName = "cache";
   private static final String _DatabaseCreateSQL =
       "CREATE TABLE IF NOT EXISTS " + _DatabaseTableName + " (" +
         "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-        "name TEXT NOT NULL UNIQUE, " +
+        "key TEXT NOT NULL UNIQUE, " +
         "valueString TEXT, " +
         "valueBytes BLOB, " +
         "timestampCreated INTEGER NOT NULL, " +
         "timestampModified INTEGER NOT NULL, " +
         "ttl INTEGER NOT NULL, " +
-        "uri TEXT, " +
-        "etag TEXT" +
+        "sourceUri TEXT, " +
+        "eTag TEXT" +
       ");";
 
   /** {@inheritDoc} */
@@ -95,7 +104,7 @@ public class DBCacheProvider extends SQLiteOpenHelper implements CacheProvider {
   @Override
   public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
     synchronized(this._databaseAccessLock) {
-      _Logger.info("Upgrading database from version %1$d to %2$d (dropping all data)", oldVersion, newVersion);
+      _Logger.trace("Upgrading database from version {} to {} (dropping all data)", oldVersion, newVersion);
       db.execSQL("DROP TABLE IF EXISTS " + _DatabaseTableName);
       db.execSQL(_DatabaseTableName);
     }
@@ -103,54 +112,287 @@ public class DBCacheProvider extends SQLiteOpenHelper implements CacheProvider {
 
   /** {@inheritDoc} */
   @Override
-  public void add(String key, String value, long ttl, String eTag, URI sourceUri) {
-
+  public boolean add(String key, String value, long ttl, String eTag, URI sourceUri) {
+    return(this.add(key, value, null, ttl, eTag, sourceUri));
   }
 
   /** {@inheritDoc} */
   @Override
-  public void add(String key, byte[] value, long ttl, String eTag, URI sourceUri) {
+  public boolean add(String key, byte[] value, long ttl, String eTag, URI sourceUri) {
+    return(this.add(key, null, value, ttl, eTag, sourceUri));
+  }
 
+  /** Add or update a value in the cache. */
+  private boolean add(String key, String valueString, byte[] valueBytes, long ttl, String eTag, URI sourceUri) {
+    if((key == null) || (key.length() <= 0)) { throw(new IllegalArgumentException("'key' can not be NULL or empty")); }
+
+    // Set up the needed values
+    ContentValues values = new ContentValues();
+    values.put("key", key);
+    if(valueString == null) {
+      values.putNull("valueString");
+    } else {
+      values.put("valueString", valueString);
+    }
+    if(valueBytes == null) {
+      values.putNull("valueBytes");
+    } else {
+      values.put("valueBytes", valueBytes);
+    }
+    values.put("ttl", ttl);
+    if(eTag == null) {
+      values.putNull("eTag");
+    } else {
+      values.put("eTag", eTag);
+    }
+    if(sourceUri == null) {
+      values.putNull("sourceUri");
+    } else {
+      values.put("sourceUri", sourceUri.toString());
+    }
+    values.put("timestampModified", System.currentTimeMillis());
+
+    try {
+
+      synchronized(this._databaseAccessLock) {
+        if (this.containsKeyInternal(key, true)) {
+
+          // Update an existing record
+          _Logger.trace("Updating cache entry '{}'", key);
+          return (this.getWritableDatabase().update(_DatabaseTableName, values, "key = ?", new String[]{key}) > 0);
+        } else {
+
+          // Insert a new record
+          _Logger.trace("Inserting cache entry '{}'", key);
+          values.put("timestampCreated", System.currentTimeMillis());
+          return (this.getWritableDatabase().insert(_DatabaseTableName, null, values) != -1);
+        }
+      }
+
+    } catch(SQLiteException e) {
+      _Logger.error("add() failed", e);
+      return(false);
+    }
   }
 
   /** {@inheritDoc} */
   @Override
   public CacheEntry get(String key, boolean allowExpired) {
-    return null;
+    if((key == null) || (key.length() <= 0)) { throw(new IllegalArgumentException("'key' can not be NULL or empty")); }
+    CacheEntry result = null;
+    synchronized(this._databaseAccessLock) {
+      Cursor cursor = null;
+      try {
+        if(allowExpired) {
+          cursor = this.getReadableDatabase().query(_DatabaseTableName, null, "key = ?", new String[]{key}, null, null, null);
+        } else {
+          cursor = this.getReadableDatabase().query(
+              _DatabaseTableName,
+              null,
+              "key = ?",
+              new String[] {key},
+              "id",
+              String.format(java.util.Locale.US, "(timestampModified + ttl) >= %1$d", System.currentTimeMillis()),
+              null);
+        }
+        if(cursor.moveToNext()) {
+          result = this.cacheEntryFromCursor(cursor);
+        }
+      } finally {
+        try { if(cursor != null) { cursor.close(); cursor = null; } } catch(Exception e) {} // No-op OK
+      }
+      return(result);
+    }
   }
 
   /** {@inheritDoc} */
   @Override
   public List<CacheEntry> getAll(boolean allowExpired) {
-    return null;
+    synchronized(this._databaseAccessLock) {
+      ArrayList<CacheEntry> cacheEntries = new ArrayList<CacheEntry>();
+      Cursor cursor = null;
+      try {
+        if(allowExpired) {
+          cursor = this.getReadableDatabase().query(_DatabaseTableName, null, null, null, null, null, null);
+        } else {
+          cursor = this.getReadableDatabase().query(
+              _DatabaseTableName,
+              null,
+              null,
+              null,
+              "id",
+              String.format(java.util.Locale.US, "(timestampModified + ttl) >= %1$d", System.currentTimeMillis()),
+              null);
+        }
+        if(cursor.moveToFirst()) {
+          do {
+            cacheEntries.add(this.cacheEntryFromCursor(cursor));
+          } while(cursor.moveToNext());
+        }
+      } finally {
+        try { if(cursor != null) { cursor.close(); cursor = null; } } catch(Exception e) {} // No-op OK
+      }
+      return(cacheEntries);
+    }
   }
 
-  @Override
-  public int size(boolean b) {
-    return 0;
-  }
+  /**
+   * A convenience method that creates a {@link CacheEntry} instance from a database {@link Cursor}.
+   * The {@link Cursor} must already be pointing to the relevant database record.
+   */
+  private CacheEntry cacheEntryFromCursor(Cursor cursor) {
+    if(cursor == null) { throw(new IllegalArgumentException("'cursor' can not be NULL")); }
+    if((cursor.isBeforeFirst()) || (cursor.isAfterLast())) { throw(new IllegalArgumentException("'cursor' must already be pointing to a valid record")); }
 
-  @Override
-  public boolean containsKey(String s, boolean b) {
-    return false;
+    // Get the database values
+    int id = cursor.getInt(0);                  // id
+    String key = cursor.getString(1);           // key
+    String valueString = null;
+    if(!cursor.isNull(2)) {
+      valueString = cursor.getString(2);        // valueString
+    }
+    byte[] valueBytes = null;
+    if(!cursor.isNull(3)) {
+      valueBytes = cursor.getBlob(3);           // valueBytes
+    }
+    long timestampCreated = cursor.getLong(4);  // timestampCreated
+    long timestampModified = cursor.getLong(5); // timestampModified
+    long ttl = cursor.getLong(6);               // ttl
+    URI sourceUri = null;
+    if(!cursor.isNull(7)) {
+      String uriStr = cursor.getString(7);      // sourceUri
+      if((uriStr != null) || (uriStr.length() > 0)) {
+        try {
+          sourceUri = new URI(uriStr);
+        } catch(URISyntaxException e) { throw(new CacheException(e)); }
+      }
+    }
+    String eTag = null;
+    if(!cursor.isNull(8)) {
+      eTag = cursor.getString(8);               // eTag
+    }
+
+    // Create and return the CacheEntry instance
+    return(new CacheEntry(key, valueString, valueBytes, ttl, eTag, sourceUri, timestampCreated, timestampModified));
   }
 
   /** {@inheritDoc} */
   @Override
-  public void remove(String key) {
+  public int size(boolean allowExpired) {
+    synchronized(this._databaseAccessLock) {
+      return(this.sizeInternal(allowExpired));
+    }
+  }
 
+  /** Does <b>not</b> do locking and should only be used carefully from within this class. */
+  private int sizeInternal(boolean allowExpired) {
+    SQLiteStatement dbStatement = null;
+    if(allowExpired) {
+      dbStatement = this.getWritableDatabase().compileStatement(String.format(java.util.Locale.US, "SELECT count(*) FROM %1$s", _DatabaseTableName));
+    } else {
+      dbStatement = this.getWritableDatabase().compileStatement(String.format(
+          java.util.Locale.US,
+          "SELECT count(*) FROM %1$s GROUP BY id HAVING (timestampModified + ttl) >= %2$d",
+          _DatabaseTableName,
+          System.currentTimeMillis()));
+    }
+    try {
+      return((int)dbStatement.simpleQueryForLong());
+    } catch(SQLiteDoneException e) {
+      return(0);  // Indicates simpleQueryForLong() did not get a result row (i.e. no records match)
+    } finally {
+      try {
+        dbStatement.close();
+        dbStatement = null;
+      } catch (Exception e) {
+        _Logger.error("SQLiteStatement.close() failed", e);  // No-op OK
+      }
+    }
   }
 
   /** {@inheritDoc} */
   @Override
-  public void removeAll() {
+  public boolean containsKey(String key, boolean allowExpired) {
+    if((key == null) || (key.length() <= 0)) { throw(new IllegalArgumentException("'key' can not be NULL or empty")); }
+    synchronized(this._databaseAccessLock) {
+      return(this.containsKeyInternal(key, allowExpired));
+    }
+  }
 
+  /** Does <b>not</b> do locking and should only be used carefully from within this class. */
+  private boolean containsKeyInternal(String key, boolean allowExpired) {
+    SQLiteStatement dbStatement = null;
+    if(allowExpired) {
+      dbStatement = this.getReadableDatabase().compileStatement(String.format(java.util.Locale.US, "SELECT count(*) FROM %1$s WHERE key = ?", _DatabaseTableName));
+    } else {
+      dbStatement = this.getReadableDatabase().compileStatement(String.format(
+          java.util.Locale.US,
+          "SELECT count(*) FROM %1$s WHERE key = ? GROUP BY id HAVING (timestampModified + ttl) >= %2$d",
+          _DatabaseTableName,
+          System.currentTimeMillis()));
+    }
+    try {
+      dbStatement.bindString(1, key);
+      return (dbStatement.simpleQueryForLong() > 0);
+    } catch(SQLiteDoneException e) {
+      return(false);  // Indicates simpleQueryForLong() did not get a result row (i.e. no records match) caused by the HAVING clause
+    } finally {
+      try {
+        dbStatement.close();
+        dbStatement = null;
+      } catch (Exception e) {
+        _Logger.error("SQLiteStatement.close() failed", e);  // No-op OK
+      }
+    }
   }
 
   /** {@inheritDoc} */
   @Override
-  public void trimLru(int maxEntries) {
+  public boolean remove(String key) {
+    if((key == null) || (key.length() <= 0)) { throw(new IllegalArgumentException("'key' can not be NULL or empty")); }
+    synchronized(this._databaseAccessLock) {
+      int deleteCount = this.getWritableDatabase().delete(_DatabaseTableName, "key = ?", new String[] { key });
+      return(deleteCount > 0);
+    }
+  }
 
+  /** {@inheritDoc} */
+  @Override
+  public boolean removeAll() {
+    synchronized(this._databaseAccessLock) {
+      this.getWritableDatabase().delete(_DatabaseTableName, null, null);
+    }
+    return(true);
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public boolean trimLru(int maxEntries) {
+    if(maxEntries < 0) { throw(new IllegalArgumentException("'maxEntries' can not be negative")); }
+    synchronized(this._databaseAccessLock) {
+      if(this.sizeInternal(true) > maxEntries) {
+
+        // Get the database row ID for where LRU records start
+        Long id = null;
+        Cursor results = null;
+        try {
+          results = this.getReadableDatabase().query(_DatabaseTableName, _IDColumn, null, null, null, null, "timestampModified DESC");
+          if(results.moveToPosition(maxEntries)) { id = results.getLong(0); } // ID is at index zero
+        } finally {
+          try { if(results != null) { results.close(); results = null; } } catch(Exception e) {} // No-op OK
+        }
+
+        // This should not be possible
+        if(id == null) {
+          throw(new IllegalStateException("trimLru() failed to get row ID"));
+        }
+
+        // Delete the records that are under the LRU ID
+        int count = this.getWritableDatabase().delete(_DatabaseTableName, String.format(java.util.Locale.US, "id <= %1$d", id), null);
+        _Logger.trace("{} LRU entries deleted form cache", count);
+      }
+    }
+    return(true);
   }
 
 }

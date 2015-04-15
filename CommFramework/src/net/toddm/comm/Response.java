@@ -51,7 +51,9 @@ public class Response implements Serializable {
 	protected Response(byte[] responseBytes, Map<String, List<String>> headers, int responseCode, int requestId, int responseTime) {
 		this._responseBytes = responseBytes;
 		if(headers != null) {
-			this._headers = headers;
+
+			// Ensure that we use a Map implementation that can be serialized no matter what type of Map is passed in
+			this._headers = new HashMap<String, List<String>>(headers);
 		} else {
 			this._headers = new HashMap<String, List<String>>();
 		}

@@ -13,17 +13,26 @@
 // *  See the License for the specific language governing permissions and
 // *  limitations under the License.
 // ***************************************************************************
-package net.toddm.comm.client;
-
-import android.app.Application;
-import android.test.ApplicationTestCase;
+package net.toddm.cache;
 
 /**
+ * An exception type thrown by the caching framework.
  * <p>
  * @author Todd S. Murchison
  */
-public class ApplicationTest extends ApplicationTestCase<Application> {
-  public ApplicationTest() {
-    super(Application.class);
-  }
+public class CacheException extends RuntimeException {
+	private static final long serialVersionUID = -7753214565977058690L;
+
+	/** See {@link RuntimeException#RuntimeException()}. */
+	public CacheException() { super(); }
+
+	/** See {@link RuntimeException#RuntimeException(String)}. */
+	public CacheException(String msg) { super(msg); }
+
+	/** See {@link RuntimeException#RuntimeException(Throwable)}. */
+	public CacheException(Throwable e) { super(e); }
+
+	/** See {@link RuntimeException#RuntimeException(String, Throwable)}. */
+	public CacheException(String msg, Throwable e) { super(msg, e); }
+
 }

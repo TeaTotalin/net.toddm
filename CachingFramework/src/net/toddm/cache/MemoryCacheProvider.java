@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -52,18 +51,20 @@ public class MemoryCacheProvider implements CacheProvider {
 
 	/** {@inheritDoc} */
 	@Override
-	public void add(String key, String value, long ttl, String eTag, URI sourceUri) {
+	public boolean add(String key, String value, long ttl, String eTag, URI sourceUri) {
 
 		// The constructor used in the line below does argument validation
 		this._keyToEntry.put(this.getLookupKey(key), new CacheEntry(key, value, ttl, eTag, sourceUri));
+		return(true);
 	}
 
 	/** {@inheritDoc} */
 	@Override
-	public void add(String key, byte[] value, long ttl, String eTag, URI sourceUri) {
+	public boolean add(String key, byte[] value, long ttl, String eTag, URI sourceUri) {
 
 		// The constructor used in the line below does argument validation
 		this._keyToEntry.put(this.getLookupKey(key), new CacheEntry(key, value, ttl, eTag, sourceUri));
+		return(true);
 	}
 
 	/** {@inheritDoc} */
@@ -115,26 +116,30 @@ public class MemoryCacheProvider implements CacheProvider {
 
 	/** {@inheritDoc} */
 	@Override
-	public void remove(String key) {
+	public boolean remove(String key) {
 		if((key == null) || (key.length() <= 0)) { throw(new IllegalArgumentException("'key' can not be NULL or empty")); }
 		this._keyToEntry.remove(this.getLookupKey(key));
+		return(true);
 	}
 
 	/** {@inheritDoc} */
 	@Override
-	public void removeAll() {
+	public boolean removeAll() {
 		this._keyToEntry.clear();
+		return(true);
 	}
 
 	/** {@inheritDoc} */
 	@Override
-	public void trimLru(int maxEntries) {
+	public boolean trimLru(int maxEntries) {
 		List<CacheEntry> entries = this.getAll(true);
-		if(entries.size() <= maxEntries) { return; }
-		Collections.sort(entries, this._cacheEntryAgeComparator);
-		for(int i = maxEntries; i < entries.size(); i++) {
-			this.remove(entries.get(i).getKey());
+		if(entries.size() > maxEntries) {
+			Collections.sort(entries, this._cacheEntryAgeComparator);
+			for(int i = maxEntries; i < entries.size(); i++) {
+				this.remove(entries.get(i).getKey());
+			}
 		}
+		return(true);
 	}
 
 }

@@ -45,7 +45,7 @@ public class CacheEntry {
 	 * @param eTag An optional entity tag value. This can be NULL if your cache does not make use of ETags.
 	 * @param sourceUri An optional source URI. This can be NULL if you do not make use of URIs.
 	 */
-	protected CacheEntry(String key, String value, long ttl, String eTag, URI sourceUri) {
+	public CacheEntry(String key, String value, long ttl, String eTag, URI sourceUri) {
 
 		// Validate parameters
 		if((key == null) || (key.length() <= 0)) { throw(new IllegalArgumentException("'key' can not be NULL or empty")); }
@@ -70,7 +70,7 @@ public class CacheEntry {
 	 * @param eTag An optional entity tag value. This can be NULL if your cache does not make use of ETags.
 	 * @param sourceUri An optional source URI. This can be NULL if you do not make use of URIs.
 	 */
-	protected CacheEntry(String key, byte[] value, long ttl, String eTag, URI sourceUri) {
+	public CacheEntry(String key, byte[] value, long ttl, String eTag, URI sourceUri) {
 
 		// Validate parameters
 		if((key == null) || (key.length() <= 0)) { throw(new IllegalArgumentException("'key' can not be NULL or empty")); }
@@ -83,6 +83,41 @@ public class CacheEntry {
 		this._sourceUri = sourceUri;
 		this._timestampCreated = System.currentTimeMillis();
 		this._timestampModified = this._timestampCreated;
+	}
+
+	/**
+	 * This version of the constructor is for use by {@link CacheProvider} implementers that need to 
+	 * deserialize instances of {@link CacheEntry} and therefore need access to setting all fields.
+	 * <p>
+	 * @param key A unique key value for this cache entry.
+	 * @param valueString The string value of this cache entry (can be NULL).
+	 * @param valueBytes The bytes value of this cache entry (can be NULL).
+	 * @param ttl The Time To Live (TTL) of this cache entry. Any value less than 1 will result in an entry that is always stale.
+	 * @param eTag An optional entity tag value. This can be NULL if your cache does not make use of ETags.
+	 * @param sourceUri An optional source URI. This can be NULL if you do not make use of URIs.
+	 * @param timestampCreated The epoch representation of the creation timestamp for this cache entry.
+	 * @param timestampModified The epoch representation of the creation timestamp for this cache entry.
+	 */
+	public CacheEntry(String key, String valueString, byte[] valueBytes, long ttl, String eTag, URI sourceUri, long timestampCreated, long timestampModified) {
+
+		// Validate parameters
+		if((key == null) || (key.length() <= 0)) { throw(new IllegalArgumentException("'key' can not be NULL or empty")); }
+		
+		if((valueString != null) && (valueString.length() <= 0)) { valueString = null; }
+		if((valueBytes != null) && (valueBytes.length <= 0)) { valueBytes = null; }
+		if((valueString != null) && (valueBytes != null)) { throw(new IllegalArgumentException("A CacheEntry should only have either a string value OR a bytes value")); }
+
+		if(timestampCreated > System.currentTimeMillis()) { throw(new IllegalArgumentException("'timestampCreated' should not be in the future")); }
+		if(timestampModified > System.currentTimeMillis()) { throw(new IllegalArgumentException("'timestampModified' should not be in the future")); }
+
+		this._key = key;
+		this._valueString = valueString;
+		this._valueBytes = valueBytes;
+		this._ttl = ttl;
+		this._etag = eTag;
+		this._sourceUri = sourceUri;
+		this._timestampCreated = timestampCreated;
+		this._timestampModified = timestampModified;
 	}
 
 	/** Returns the unique key for this cache entry. */
