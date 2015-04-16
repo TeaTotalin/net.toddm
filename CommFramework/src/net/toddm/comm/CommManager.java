@@ -279,6 +279,36 @@ public final class CommManager {
 			}
 		}
 	}
+	
+	/**
+	 * This method calculates and returns the interval, in milliseconds, between now and the next work retry time.
+	 * <p>
+	 * <b>NOTE</b>: This method is not thread-safe and should be called only from appropriate critical sections.
+	 */
+	private long getNextRetryInterval() {
+
+		// Default to sleeping indefinitely until notified
+		long retryInterval = Long.MAX_VALUE;
+
+		// Examine pending retry work to see if there is a time we should wake up without being notified
+		long now = System.currentTimeMillis();
+		for(Work work : this._retryWork) {
+			long delta = work.getRetryAfterTimestamp() - now;
+			if(delta < retryInterval) { retryInterval = delta; }
+		}
+
+		// Enforce some sane limits
+		if(retryInterval < 20) { retryInterval = 20; }
+
+		// Do some logging
+		if(retryInterval == Long.MAX_VALUE) {
+			_Logger.trace("[thread:{}] getNextRetryInterval() returning MAX_VALUE", Thread.currentThread().getId());
+		} else {
+			_Logger.trace("[thread:{}] getNextRetryInterval() returning {} milliseconds", Thread.currentThread().getId(), retryInterval);
+		}
+
+		return(retryInterval);
+	}
 
 	//------------------------------------------------------------
 	// Private helper classes
@@ -342,7 +372,8 @@ public final class CommManager {
 							_requestWorkExecutorService.execute(workToStart.getFutureTask());
 						}
 
-						// TODO: Calculate sleep time based on pending retry work
+						// Calculate sleep time based on pending retry work
+						sleepTime = CommManager.this.getNextRetryInterval();
 
 						// Sleep until there is more work to do
 						_Logger.debug(String.format(

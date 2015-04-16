@@ -39,9 +39,12 @@ import junit.framework.TestCase;
 public class MainTest extends TestCase {
 
 	private static Logger _Logger = LoggerFactory.getLogger(MainTest.class.getSimpleName());
+	
+	// TODO: Test the Retry-After header handling (not just the 503 and 202 response codes as tested below).
+	// TODO: Test error handling (think about how we want to inject Exceptions for unit tests).
 
 	/** Use http://httpbin.org/ to simulate specific response shapes for testing */
-	public void test503Handling() throws Exception {
+	public void testDefaultRetryPolicyProvider503Handling() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").create();
@@ -52,7 +55,22 @@ public class MainTest extends TestCase {
         Response response = work.get();
         assertNotNull(response);
         assertEquals(503, (int)response.getResponseCode());
-        assertEquals(5, work.getRequest().getRetryCountFromFailure());
+        assertEquals(5, work.getRequest().getRetryCountFromResponse());
+	}
+
+	/** Use http://httpbin.org/ to simulate specific response shapes for testing */
+	public void testDefaultRetryPolicyProvider202Handling() throws Exception {
+
+		CommManager.Builder commManagerBuilder = new CommManager.Builder();
+		CommManager commManager = commManagerBuilder.setName("TEST").create();
+
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/status/202"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
+        assertNotNull(work);
+
+        Response response = work.get();
+        assertNotNull(response);
+        assertEquals(202, (int)response.getResponseCode());
+        assertEquals(5, work.getRequest().getRetryCountFromResponse());
 	}
 
 	public void testMakeTestRequest() throws Exception {
