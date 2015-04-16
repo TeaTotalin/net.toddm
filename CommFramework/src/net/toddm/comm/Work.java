@@ -16,7 +16,10 @@
 package net.toddm.comm;
 
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.Map;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
@@ -38,7 +41,7 @@ public class Work implements Future<Response> {
 		WAITING,
 		/** The {@link Work} instance is actively being processed */
 		RUNNING,
-		/** There is a pending a retry attempt for the {@link Work} instance */
+		/** There is a pending retry attempt for the {@link Work} instance */
 		RETRYING,
 		/** The {@link Work} instance has been cancelled */
 		CANCELLED,
@@ -46,11 +49,13 @@ public class Work implements Future<Response> {
 		COMPLETED
 	}
 
-	private Status _state = Status.CREATED;
-	private volatile FutureTask<Response> _futureTask = null;
-	private final Priority _priority;
 	private final Request _request;
+	private final Priority _priority;
+	private final ConcurrentLinkedDeque<FutureTask<Response>> _futureTasks = new ConcurrentLinkedDeque<FutureTask<Response>>();
+
+	private Status _state = Status.CREATED;
 	private Response _response = null;
+	private long _retryAfterTimestamp = 0;
 
 	protected Work(
 			URI uri, 
@@ -96,21 +101,27 @@ public class Work implements Future<Response> {
 	/** Sets the response that resulted from processing this work. NULL is a valid value. */
 	public void setResponse(Response response) { this._response = response; }
 
-	/**
-	 * Returns the {@link FutureTask} instance that defines the work to do for this  for this {@link Work} 
-	 * instance, or NULL if there isn't one. The {@link FutureTask} can be used to check the state of the 
-	 * work ({@link FutureTask#isDone()}, etc.), block on the work ({@link FutureTask#get()}), and can be 
-	 * submitted to and Executor to begin processing the work.
-	 */
-	protected FutureTask<Response> getFutureTask() { return(this._futureTask); }
+	/** Returns the most recent {@link FutureTask} instance that defines work to do for this {@link Work} instance, or NULL if there isn't one. */
+	protected FutureTask<Response> getFutureTask() { return(this._futureTasks.peek()); }
 
 	/**
-	 * Sets the {@link FutureTask} for this {@link Work} instance.
-	 * See {@link Work#getFutureTask()} for more details.
+	 * Adds the given {@link FutureTask} to this {@link Work} instance as the most recent work.
+	 * Note that, when blocking on this work, all FutureTasks added here must complete before the wait handle returns.
 	 */
-	protected void setFutureTask(FutureTask<Response> futureTask) {
+	protected void addFutureTask(FutureTask<Response> futureTask) {
 		if(futureTask == null) { throw(new IllegalArgumentException("'futureTask' can not be NULL")); }
-		this._futureTask = futureTask;
+		this._futureTasks.addFirst(futureTask);
+	}
+	
+	/** Returns the "retry-after" timestamp (as an epoch time in milliseconds) for this {@link Work} */
+	protected long getRetryAfterTimestamp() { return(this._retryAfterTimestamp); }
+
+	/** Updates the "retry-after" timestamp for this {@link Work} based on the given delta.
+	 * <p>
+	 * @param deltaInMilliseconds The amount of time from now, in <b>milliseconds</b>, after which the retry should happen.
+	 */
+	protected void updateRetryAfterTimestamp(long deltaInMilliseconds) {
+		this._retryAfterTimestamp = System.currentTimeMillis() + deltaInMilliseconds;
 	}
 
 	/**
@@ -148,19 +159,61 @@ public class Work implements Future<Response> {
 	@Override
 	public boolean cancel(boolean interruptAllowed) {
 		// TODO: Cancel may need to be done via the CommManager...
-		return(this._futureTask.cancel(interruptAllowed));
+		boolean cancelled = true;
+		for(FutureTask<Response> future : this._futureTasks) {
+			cancelled = cancelled && future.cancel(interruptAllowed);
+		}
+		return(cancelled);
 	}
 
 	/** {@inheritDoc} */
 	@Override
 	public Response get() throws InterruptedException, ExecutionException {
-		return(this._futureTask.get());
+		try { return(this.getInternal(null, null)); } catch (TimeoutException e) { } // No-op OK
+		return(null);
 	}
 
-	/** {@inheritDoc} */
+	/**
+	 * {@inheritDoc}
+	 * <p>
+	 * <b>NOTE</b>: This implementation differers form the standard {@link Future#get(long, TimeUnit)} in that this {@link Work} instance may be 
+	 * backed by multiple Futures. Further more, new Futures may be added while waiting on the current collection.  Because of this, the given 
+	 * timeout value is used <b>for each Future</b> belonging to this Work and the total blocking time is indeterminate.  The maximum possible total 
+	 * wait time before timeout will be the timeout value given times the total number of Futures required by this work over it's lifetime.
+	 */
 	@Override
 	public Response get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
-		return(this._futureTask.get(timeout, unit));
+		return(this.getInternal(timeout, unit));
+	}
+	
+	private Response getInternal(Long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+		
+		// Make sure to wait for all work (newer work may have been added while we were waiting)
+		int responseCount = 0;
+		ArrayList<Response> responses = new ArrayList<Response>();
+		while(responseCount < this._futureTasks.size()) {
+			responseCount = 0;
+			for(FutureTask<Response> future : this._futureTasks) {
+				Response response = null;
+				if((timeout != null) && (unit != null)) {
+					response = future.get(timeout, unit);					
+				} else {
+					response = future.get();
+				}
+				responseCount++;
+				if((response != null) && (!responses.contains(response))) {
+					responses.add(response);
+				}
+			}
+		}
+
+		// TODO: Do we need to explicitly sort responses to find the newest one to return?
+		
+		if(responses.size() <= 0) {
+			return(null);
+		} else {
+			return(responses.get(0));
+		}
 	}
 
 	/** {@inheritDoc} */

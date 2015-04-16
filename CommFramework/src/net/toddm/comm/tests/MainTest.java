@@ -40,6 +40,21 @@ public class MainTest extends TestCase {
 
 	private static Logger _Logger = LoggerFactory.getLogger(MainTest.class.getSimpleName());
 
+	/** Use http://httpbin.org/ to simulate specific response shapes for testing */
+	public void test503Handling() throws Exception {
+
+		CommManager.Builder commManagerBuilder = new CommManager.Builder();
+		CommManager commManager = commManagerBuilder.setName("TEST").create();
+
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/status/503"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
+        assertNotNull(work);
+
+        Response response = work.get();
+        assertNotNull(response);
+        assertEquals(503, (int)response.getResponseCode());
+        assertEquals(5, work.getRequest().getRetryCountFromFailure());
+	}
+
 	public void testMakeTestRequest() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();

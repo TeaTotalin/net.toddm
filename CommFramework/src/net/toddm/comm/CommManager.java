@@ -44,6 +44,7 @@ import net.toddm.cache.CacheEntry;
 import net.toddm.cache.CacheProvider;
 import net.toddm.comm.Priority.StartingPriority;
 import net.toddm.comm.Request.RequestMethod;
+import net.toddm.comm.Work.Status;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,9 +73,10 @@ public final class CommManager {
 	// For CommManager access we are going to use a Builder -> Setters -> Create pattern. Instances of CommManager 
 	// are created by first creating an instance of CommManager.Builder, calling setters on that Builder instance, 
 	// and then calling create() on that Builder instance, which returns a CommManager instance.
-	private CommManager(String name, CacheProvider cacheProvider, PriorityManagmentProvider priorityManagmentProvider) {
+	private CommManager(String name, CacheProvider cacheProvider, PriorityManagmentProvider priorityManagmentProvider, RetryPolicyProvider retryPolicyProvider) {
 		this._cacheProvider = cacheProvider;
 		this._priorityManagmentProvider = priorityManagmentProvider;
+		this._retryPolicyProvider = retryPolicyProvider;
 		this.startWorking(name);
 	}
 	//------------------------------
@@ -98,6 +100,7 @@ public final class CommManager {
 
 	private final CacheProvider _cacheProvider;
 	private final PriorityManagmentProvider _priorityManagmentProvider;
+	private final RetryPolicyProvider _retryPolicyProvider; 
 
 	/**
 	 * Enters a request into the communications framework for processing. The {@link Work} instance returned can be used
@@ -174,15 +177,15 @@ public final class CommManager {
 					// If we have a usable cached result use it
 					newWork.setResponse(cachedResponse);
 					newWork.setState(Work.Status.COMPLETED);
-					newWork.setFutureTask(new CachedResponseFuture(cachedResponse));
+					newWork.addFutureTask(new CachedResponseFuture(cachedResponse));
 					_Logger.info("[thread:{}] enqueueWork() Returning cached results [id:{}]", Thread.currentThread().getId(), newWork.getId());
 					resultWork = newWork;
 				} else {
 
 					// This request is not available from cache and is not already being 
 					// managed by this CommManager instance so add it as new work
-					newWork.setFutureTask(new FutureTask<Response>(new WorkCallable(newWork)));
-					_queuedWork.add(newWork);
+					newWork.addFutureTask(new FutureTask<Response>(new WorkCallable(newWork)));
+					addWorkToQueue(newWork, ManagedQueue.QUEUED);
 					newWork.setState(Work.Status.WAITING);
 					_Logger.info("[thread:{}] enqueueWork() Added new work [id:{}]", Thread.currentThread().getId(), newWork.getId());
 					resultWork = newWork;
@@ -195,6 +198,36 @@ public final class CommManager {
 		}
 		
 		return(resultWork);
+	}
+
+	/**
+	 * This method <b>does not block</b> and should only be carefully used internally by this class from within suitable critical sections.<br>
+	 * Adds the given {@link Work} instance to the given queue and ensures that the Work instance is removed from the other queues, as needed.
+	 */
+	private void addWorkToQueue(Work work, ManagedQueue queue) {
+
+		// Validate arguments
+		if(work == null) { throw(new IllegalArgumentException("'work' can not be NULL")); }
+		if(queue == null) { throw(new IllegalArgumentException("'queue' can not be NULL")); }
+
+		// Ensure the work is in the correct queue and not in any others
+		_queuedWork.remove(work);
+		_activeWork.remove(work);
+		_retryWork.remove(work);
+		switch(queue) {
+			case QUEUED:	_queuedWork.add(work);	break;
+			case ACTIVE:	_activeWork.add(work);	break;
+			case RETRY:		_retryWork.add(work);	break;
+			default:
+				throw(new IllegalArgumentException(String.format(Locale.US,  "Unsupported queue type [%1$s]", queue.name())));
+		}
+	}
+
+	/** An enumeration of the queues managed by {@link CommManager}. */
+	private enum ManagedQueue {
+		QUEUED,
+		ACTIVE,
+		RETRY
 	}
 
 	/** Starts the work thread if it is not already running. It is safe to make this call multiple times. */
@@ -279,6 +312,19 @@ public final class CommManager {
 								_retryWork.size()));
 
 						// TODO: Implement retry and retry management
+						// Check the retry queue to see if we need to move any work from pending retry to the priority queue
+						long now = System.currentTimeMillis();
+						ArrayList<Work> retryNowList = new ArrayList<Work>();
+						for(Work retryWork : _retryWork) {
+							if(retryWork.getRetryAfterTimestamp() <= now) {
+								retryNowList.add(retryWork);
+							}
+						}
+						for(Work retryWork : retryNowList) {
+							addWorkToQueue(retryWork, ManagedQueue.QUEUED);
+							retryWork.setState(Status.WAITING);
+							_Logger.debug("[thread:{}] Request {} moved from retry to queue", Thread.currentThread().getId(), retryWork.getId());
+						}
 
 						// Check current work to see if we can start more work
 						while((_activeWork.size() < _maxSimultaneousRequests) && (_queuedWork.size() > 0)) {
@@ -291,7 +337,7 @@ public final class CommManager {
 
 							// Grab the next request, move it to the active queue, and start the work
 							Work workToStart = _queuedWork.removeFirst();
-							_activeWork.add(workToStart);
+							addWorkToQueue(workToStart, ManagedQueue.ACTIVE);
 							workToStart.setState(Work.Status.RUNNING);
 							_requestWorkExecutorService.execute(workToStart.getFutureTask());
 						}
@@ -423,20 +469,53 @@ public final class CommManager {
 					}
 				}
 
-				//**************************************** 
-				// Establish the connection. Any configuration that must be done prior to connecting must go above.
-				urlConnection.connect();
-				//**************************************** 
-
-				// Read the response
-				int readCount;
-				byte[] data = new byte[512];
-				in = urlConnection.getInputStream();
+				// Do the actual work on the wire
 				ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-				while((readCount = in.read(data, 0, data.length)) != -1) {
-				  buffer.write(data, 0, readCount);
+				try {
+
+					//**************************************** 
+					// Establish the connection. Any configuration that must be done prior to connecting must go above.
+					urlConnection.connect();
+					//**************************************** 
+	
+					// Read the response
+					if(urlConnection.getContentLengthLong() > 0) {
+						int readCount;
+						byte[] data = new byte[512];
+						in = urlConnection.getInputStream();
+						while((readCount = in.read(data, 0, data.length)) != -1) {
+						  buffer.write(data, 0, readCount);
+						}
+						buffer.flush();
+					}
+				
+				} catch(Exception e) {
+					
+					// An error occurred while doing the on-the-wire work, check if we should retry the request later
+					_Logger.error(this._logPrefix, e);
+					RetryProfile retryProfile = CommManager.this._retryPolicyProvider.shouldRetry(this._work.getRequest(), e);
+					if(retryProfile.shouldRetry()) {
+
+						// This work should be retried, make it so...
+						this._work.updateRetryAfterTimestamp(retryProfile.getRetryAfterMilliseconds());
+						this._work.getRequest().incrementRetryCountFromFailure();
+						this._work.setState(Status.RETRYING);
+
+						// Add the failed request to the retry list and kick the worker thread so it wakes up to recalculate it's sleep time
+						synchronized(_workManagmentLock) {
+							addWorkToQueue(this._work, ManagedQueue.RETRY);
+
+							// Add the retry unit of work to the Work instance
+							this._work.addFutureTask(new FutureTask<Response>(new WorkCallable(this._work)));
+							_workManagmentLock.notify();
+						}
+					} else {
+						this._work.setState(Status.COMPLETED);
+					}
+
+					// We are done (for now at least) with this work
+					return(null);
 				}
-				buffer.flush();
 
 				// Construct the response instance
 				response = new Response(
@@ -447,6 +526,30 @@ public final class CommManager {
 						(int)(System.currentTimeMillis() - start));
 				this._work.setResponse(response);
 				_Logger.debug("{} Request finished with a {} response code", this._logPrefix, this._work.getResponse().getResponseCode());
+
+				// Check for a response triggered retry
+				RetryProfile retryProfile = CommManager.this._retryPolicyProvider.shouldRetry(this._work.getRequest(), response);
+				if(retryProfile.shouldRetry()) {
+
+					// This work should be retried, make it so...
+					this._work.updateRetryAfterTimestamp(retryProfile.getRetryAfterMilliseconds());
+					this._work.getRequest().incrementRetryCountFromResponse();
+					this._work.setState(Status.RETRYING);
+
+					// Add the failed request to the retry list and kick the worker thread so it wakes up to recalculate it's sleep time
+					synchronized(_workManagmentLock) {
+						addWorkToQueue(this._work, ManagedQueue.RETRY);
+
+						// Add the retry unit of work to the Work instance
+						this._work.addFutureTask(new FutureTask<Response>(new WorkCallable(this._work)));
+						_workManagmentLock.notify();
+					}
+					
+					// We are done (for now at least) with this work
+					return(null);
+				} else {
+					this._work.setState(Status.COMPLETED);
+				}
 
 				// Offer the response to cache (guard against negative caching)
 				if((this._work.getRequest().isCachingAllowed()) && (CommManager.this._cacheProvider != null) && (response.isSuccessful())) {
@@ -514,27 +617,37 @@ public final class CommManager {
 
 				_Logger.debug("{} Work completed, doing cleanup [state:{}]", this._logPrefix, this._work.getState());
 
-				// TODO: Update the work state based on result of the work?
-				this._work.setState(Work.Status.COMPLETED);
+				// TODO: Ensure that Work state change and queue management both always happen within _workManagmentLock
 
-				if(_activeWork.remove(this._work)) {
-					_Logger.info("{} Finished work has been removed from _ActiveWork", this._logPrefix);
-				} else {
-					_Logger.info("{} Finished work was not found in _ActiveWork", this._logPrefix);
+				switch(this._work.getState()) {
+					case CREATED:	// The work has been created, but has not started processing yet
+						break;
+					case WAITING:	// The work is waiting in the pending work queue
+						break;
+					case RUNNING:	// The work is actively being processed
+						break;
+					case RETRYING:	// There is a pending retry attempt for the work
+						break;
+					case CANCELLED:	// The work has been cancelled
+					case COMPLETED:	// The work has finished without being cancelled
+
+						// Ensure finished work is no longer in any of the queues
+						if(_queuedWork.remove(this._work)) {
+							_Logger.error("{} Finished work has been removed from _queuedWork", this._logPrefix);
+						}
+						if(_activeWork.remove(this._work)) {
+							_Logger.info("{} Finished work has been removed from _activeWork", this._logPrefix);
+						}
+						if(_retryWork.remove(this._work)) {
+							_Logger.error("{} Finished work has been removed from _retryWork", this._logPrefix);
+						}
+
+						// Kick the work thread to check for new work (a spot just opened up!)
+						_Logger.trace("{} kicking work thread", this._logPrefix);
+						_workManagmentLock.notify();
+
+						break;
 				}
-
-				if(!Work.Status.RETRYING.equals(this._work.getState())) {
-					if(_queuedWork.remove(this._work)) {
-						_Logger.error("{} Found finished work in _QueuedWork", this._logPrefix);
-					}
-					if(_retryWork.remove(this._work)) {
-						_Logger.error("{} Found finished work in _RetryWork", this._logPrefix);
-					}
-				}
-
-				// Kick the work thread to check for new work (a spot just opened up!)
-				_Logger.trace("{} kicking work thread", this._logPrefix);
-				_workManagmentLock.notify();
 			}
 		}
 
@@ -546,6 +659,7 @@ public final class CommManager {
 		private String _name = "default";
 		private CacheProvider _cacheProvider = null;
 		private PriorityManagmentProvider _priorityManagmentProvider = null;
+		private RetryPolicyProvider _retryPolicyProvider = null;
 
 		public Builder() {
 
@@ -553,6 +667,7 @@ public final class CommManager {
 			// TODO: request priority, failure policies, configuration provider, response body handling, etc.
 			
 			this._priorityManagmentProvider = new DefaultPriorityManagmentProvider();
+			this._retryPolicyProvider = new DefaultRetryPolicyProvider();
 		}
 
 		/**
@@ -570,6 +685,7 @@ public final class CommManager {
 		 * {@link CommManager} instances subsequently created via {@link Builder#create()}.
 		 */
 		public Builder setCacheProvider(CacheProvider cacheProvider) {
+			// Setting cache provider to NULL is OK and results in no caching
 			this._cacheProvider = cacheProvider;
 			return(this);
 		}
@@ -580,7 +696,19 @@ public final class CommManager {
 		 * If not set then {@link DefaultPriorityManagmentProvider} is used, which provides a simple age based anti queue starvation implementation.
 		 */
 		public Builder setPriorityManagmentProvider(PriorityManagmentProvider priorityManagmentProvider) {
+			if(priorityManagmentProvider == null) { throw(new IllegalArgumentException("'priorityManagmentProvider' can not be NULL")); }
 			this._priorityManagmentProvider = priorityManagmentProvider;
+			return(this);
+		}
+
+		/**
+		 * Sets the {@link RetryPolicyProvider} instance used by the comm framework when deciding if requests should be enqueued for retry.
+		 * The retry policy provider set here will be used by the {@link CommManager} instances subsequently created via {@link Builder#create()}.
+		 * If not set then {@link DefaultRetryPolicyProvider} is used, which provides a simple error, 503, and 202 based retry implementation.
+		 */
+		public Builder setRetryPolicyProvider(RetryPolicyProvider retryPolicyProvider) {
+			if(retryPolicyProvider == null) { throw(new IllegalArgumentException("'retryPolicyProvider' can not be NULL")); }
+			this._retryPolicyProvider = retryPolicyProvider;
 			return(this);
 		}
 
@@ -591,7 +719,7 @@ public final class CommManager {
 		public CommManager create() {
 
 			// Create a CommManager instance
-			return(new CommManager(this._name, this._cacheProvider, this._priorityManagmentProvider));
+			return(new CommManager(this._name, this._cacheProvider, this._priorityManagmentProvider, this._retryPolicyProvider));
 		}
 
 	}

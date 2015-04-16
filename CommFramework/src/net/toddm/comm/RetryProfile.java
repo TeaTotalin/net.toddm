@@ -17,10 +17,25 @@ package net.toddm.comm;
 
 /**
  * Returned by {@link RetryPolicyProvider} implementers to describe needed 
- * retry work (indicate if a retry should be attempted, how long to wait, etc.).
+ * retry work (indicate if a retry should be attempted and how long to wait).
  * <p>
  * @author Todd S. Murchison
  */
 public class RetryProfile {
+
+	private final boolean _shouldRetry;
+	private final long _retryAfterMilliseconds;
+
+	/** Constructs an instance of {@link RetryProfile} with the given values. */
+	protected RetryProfile(boolean shouldRetry, long retryAfterMilliseconds) {
+		this._shouldRetry = shouldRetry;
+		this._retryAfterMilliseconds = retryAfterMilliseconds;
+	}
+
+	/** Returns a flag indicating if it is recommended to retry a {@link Request}. */
+	public boolean shouldRetry() { return(this._shouldRetry); }
+
+	/** Returns the number of milliseconds that it is recommended to wait before retrying a {@link Request}. */
+	public long getRetryAfterMilliseconds() { return(this._retryAfterMilliseconds); }
 
 }

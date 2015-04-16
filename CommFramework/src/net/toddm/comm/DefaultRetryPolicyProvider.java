@@ -45,62 +45,86 @@ public class DefaultRetryPolicyProvider implements RetryPolicyProvider {
 
 	private static final Logger _Logger = LoggerFactory.getLogger(DefaultRetryPolicyProvider.class.getSimpleName());
 
-	/** {@inheritDoc} */
+	/** Maximum number of times that this policy will recommend retrying a request the has failed due to error. */
+	private static final int _MaxErrorRetries = 5;
+
+	/** Maximum number of times that this policy will recommend retrying a request the has been told by the response to retry. */
+	private static final int _MaxResponseRetries = 5;
+
+	/**
+	 * {@inheritDoc}
+	 * <p>
+	 * This implementation provides basic support for rapid Exception based retry. If the provided {@link Exception} is a type 
+	 * that may be caused by transiient network blips then this implementation recommends retry after a short 3 second interval.
+	 */
 	@Override
 	public RetryProfile shouldRetry(Request request, Exception error) {
+		if(request == null) { throw(new IllegalArgumentException("'request' can not be NULL")); }
+		if(error == null) { throw(new IllegalArgumentException("'error' can not be NULL")); }
 
-		// Decide if we should retry the request based on the Exception type
+		// Decide if we should retry the request based on the number of retries already attempted and the Exception type
 		boolean shouldRetry = false;
-		if(	error instanceof ConnectException || 
-			error instanceof SocketException || 
-			error instanceof SocketTimeoutException || 
-			error instanceof UnknownHostException || 
-			error instanceof BindException || 
-			error instanceof NoRouteToHostException || 
-			error instanceof PortUnreachableException || 
-			error instanceof UnknownServiceException || 
-			error instanceof HttpRetryException || 
-			error instanceof ProtocolException || 
-			error instanceof SSLException || 
-			error instanceof SSLHandshakeException || 
-			error instanceof SSLProtocolException || 
-			error instanceof SSLKeyException || 
-			error instanceof SSLPeerUnverifiedException )
+		if(	(request.getRetryCountFromFailure() < _MaxErrorRetries) && 
+			(	error instanceof ConnectException || 
+				error instanceof SocketException || 
+				error instanceof SocketTimeoutException || 
+				error instanceof UnknownHostException || 
+				error instanceof BindException || 
+				error instanceof NoRouteToHostException || 
+				error instanceof PortUnreachableException || 
+				error instanceof UnknownServiceException || 
+				error instanceof HttpRetryException || 
+				error instanceof ProtocolException || 
+				error instanceof SSLException || 
+				error instanceof SSLHandshakeException || 
+				error instanceof SSLProtocolException || 
+				error instanceof SSLKeyException || 
+				error instanceof SSLPeerUnverifiedException ) )
 		{
 			shouldRetry = true;
+			_Logger.trace("Recommending request {} be retried in 3 seconds due to {}", request.getId(), error.getClass().getSimpleName());
 		}
 
-		// TODO: Support retry for some exceptions
-		return null;
+		// For Exception cases we will use a rapid retry interval of 3 seconds (hope for transient network blip)
+		return(new RetryProfile(shouldRetry, 3000));
 	}
 
-	/** {@inheritDoc} */
+	/**
+	 * {@inheritDoc}
+	 * <p>
+	 * This implementation provides basic support for 503 and 202 response codes.
+	 * If no 'Retry-After' header is found a default retry interval of 5 seconds is used.
+	 */
 	@Override
 	public RetryProfile shouldRetry(Request request, Response response) {
+		if(request == null) { throw(new IllegalArgumentException("'request' can not be NULL")); }
 		if(response == null) { throw(new IllegalArgumentException("'response' can not be NULL")); }
-		
-		// Support Retry-After header for 503 and 202 response codes
-		if((response.getResponseCode() == 503) || (response.getResponseCode() == 202)) {
 
-			// Default to 3 seconds as a seemingly sane, but totally random default
-			long retryInSeconds = 3;
+		// Support Retry-After header for 503 and 202 response codes
+		boolean shouldRetry = false;
+		long retryInSeconds = 5;  // Default to 5 seconds as a random but seemingly sane default
+		if(	(request.getRetryCountFromResponse() < _MaxResponseRetries) && 
+			(	(response.getResponseCode() == 503) || 
+				(response.getResponseCode() == 202)) ) 
+		{
 
 			// Extract the "Retry-After" header (only support delta in seconds for now)
+			shouldRetry = true;
 			if(response.getHeaders().containsKey("Retry-After")) {
 				try {
 					String retryAfter = response.getHeaders().get("Retry-After").get(0);
 					retryInSeconds = Long.parseLong(retryAfter);
 				} catch(Exception e) {
-					_Logger.error("Failed to parse value from 'Retry-After' header", e);
+					_Logger.error("Failed to parse value from 'Retry-After' header", e);  // No-op OK
 				}
 			}
 			if(_Logger.isTraceEnabled()) {
-				_Logger.trace("Retrying request {} in {} seconds due to {}", new Object[] { response.getRequestId(), retryInSeconds, response.getResponseCode() });
+				_Logger.trace("Recommending request {} be retried in {} seconds due to {}", new Object[] { request.getId(), retryInSeconds, response.getResponseCode() });
 			}
 		}
 
-		// TODO: Support retry for some responses
-		return null;
+		// Convert the retry interval to milliseconds and return
+		return(new RetryProfile(shouldRetry, retryInSeconds * 1000));
 	}
 
 }
