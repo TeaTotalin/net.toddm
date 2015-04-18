@@ -50,14 +50,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
+ * This is the main work horse of the communications framework. Instances of this class are used to submit work and provide priority queue 
+ * management, result caching, failure and response based retry, and much more.
+ * <p>
+ * The communications framework makes use of SLF4J. To use in Android include SLF4J Android (http://www.slf4j.org/android/) in your Android project.
+ * <p>
  * @author Todd S. Murchison
  */
 public final class CommManager {
 
-	// TODO: failure policies / off-line modes
-	//			- should cover graceful recovery from service outage, etc.
-	//
-	// Uses SLF4J. To use in Android include SLF4J Android (http://www.slf4j.org/android/) in your Android project.
+	// TODO: failure policies / off-line modes - should cover graceful recovery from service outage, etc.
 	//
 	// TODO: https://github.com/Talvish/Tales/tree/master/product
 	//
@@ -65,7 +67,7 @@ public final class CommManager {
 	//
 	// TODO: GZIP support
 	//
-	// TODO: Properly support SSL!
+	// TODO: Support use of end-points with bad SSL certs via configuration to allow or disallow
 
 	private static final Logger _Logger = LoggerFactory.getLogger(CommManager.class.getSimpleName());
 
@@ -145,6 +147,10 @@ public final class CommManager {
 			}
 			
 			if(existingWork != null) {
+
+				// TODO: Consider if we want to support updating request priority for already queued work based on clients enqueuing the same request at a different starting priority level.
+				// I think we would only want to allow increasing priority to prevent messing with starvation prevention algorithms. For now this is probably a very low priority feature.
+
 				_Logger.info("[thread:{}] enqueueWork() Returning already enqueued work [id:{}]", Thread.currentThread().getId(), existingWork.getId());
 				resultWork = existingWork;
 			} else {
@@ -341,7 +347,6 @@ public final class CommManager {
 								_activeWork.size(), 
 								_retryWork.size()));
 
-						// TODO: Implement retry and retry management
 						// Check the retry queue to see if we need to move any work from pending retry to the priority queue
 						long now = System.currentTimeMillis();
 						ArrayList<Work> retryNowList = new ArrayList<Work>();
@@ -694,9 +699,9 @@ public final class CommManager {
 
 		public Builder() {
 
-			// TODO: This is where we configure any sane defaults for pluggable sub-systems like caching provider, 
-			// TODO: request priority, failure policies, configuration provider, response body handling, etc.
-			
+			// This is where we configure any sane defaults for pluggable sub-systems like caching provider, 
+			// request priority, failure policies, configuration provider, response body handling, etc.
+
 			this._priorityManagmentProvider = new DefaultPriorityManagmentProvider();
 			this._retryPolicyProvider = new DefaultRetryPolicyProvider();
 		}

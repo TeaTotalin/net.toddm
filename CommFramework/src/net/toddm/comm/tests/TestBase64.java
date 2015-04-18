@@ -21,9 +21,9 @@ import org.slf4j.LoggerFactory;
 import net.toddm.comm.Base64;
 import junit.framework.TestCase;
 
-public class Base64Test extends TestCase {
+public class TestBase64 extends TestCase {
 
-	private static Logger _Logger = LoggerFactory.getLogger(Base64Test.class.getSimpleName());
+	private static Logger _Logger = LoggerFactory.getLogger(TestBase64.class.getSimpleName());
 	
 	public void testEncodeSimple() throws Exception {
 

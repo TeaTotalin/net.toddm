@@ -25,6 +25,7 @@ import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.net.UnknownServiceException;
+import java.security.cert.CertificateException;
 
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLHandshakeException;
@@ -75,11 +76,14 @@ public class DefaultRetryPolicyProvider implements RetryPolicyProvider {
 				error instanceof UnknownServiceException || 
 				error instanceof HttpRetryException || 
 				error instanceof ProtocolException || 
-				error instanceof SSLException || 
-				error instanceof SSLHandshakeException || 
 				error instanceof SSLProtocolException || 
 				error instanceof SSLKeyException || 
-				error instanceof SSLPeerUnverifiedException ) )
+				error instanceof SSLPeerUnverifiedException || 
+
+				// Most common cause of SSLHandshakeException seems to be java.security.cert.CertificateException for a bad cert, not something likely to clear up short term.
+				error.getClass().equals(SSLException.class) || 
+				( (error instanceof SSLHandshakeException) && ((error.getCause() == null) || (!(error.getCause() instanceof CertificateException))) )
+			) )
 		{
 			shouldRetry = true;
 			_Logger.trace("Recommending request {} be retried in 3 seconds due to {}", request.getId(), error.getClass().getSimpleName());

@@ -20,60 +20,25 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import junit.framework.Assert;
+import junit.framework.TestCase;
 import net.toddm.cache.MemoryCacheProvider;
 import net.toddm.comm.CommManager;
-import net.toddm.comm.DefaultPriorityManagmentProvider;
 import net.toddm.comm.Priority.StartingPriority;
 import net.toddm.comm.Request.RequestMethod;
 import net.toddm.comm.Response;
 import net.toddm.comm.ResponseCachingUtility;
 import net.toddm.comm.Work;
-import junit.framework.Assert;
-import junit.framework.TestCase;
 
-public class MainTest extends TestCase {
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-	private static Logger _Logger = LoggerFactory.getLogger(MainTest.class.getSimpleName());
-	
-	// TODO: Test the Retry-After header handling (not just the 503 and 202 response codes as tested below).
-	// TODO: Test error handling (think about how we want to inject Exceptions for unit tests).
+public class TestMain extends TestCase {
 
-	/** Use http://httpbin.org/ to simulate specific response shapes for testing */
-	public void testDefaultRetryPolicyProvider503Handling() throws Exception {
+	private static Logger _Logger = LoggerFactory.getLogger(TestMain.class.getSimpleName());
 
-		CommManager.Builder commManagerBuilder = new CommManager.Builder();
-		CommManager commManager = commManagerBuilder.setName("TEST").create();
-
-		Work work = commManager.enqueueWork(new URI("http://httpbin.org/status/503"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
-        assertNotNull(work);
-
-        Response response = work.get();
-        assertNotNull(response);
-        assertEquals(503, (int)response.getResponseCode());
-        assertEquals(5, work.getRequest().getRetryCountFromResponse());
-	}
-
-	/** Use http://httpbin.org/ to simulate specific response shapes for testing */
-	public void testDefaultRetryPolicyProvider202Handling() throws Exception {
-
-		CommManager.Builder commManagerBuilder = new CommManager.Builder();
-		CommManager commManager = commManagerBuilder.setName("TEST").create();
-
-		Work work = commManager.enqueueWork(new URI("http://httpbin.org/status/202"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
-        assertNotNull(work);
-
-        Response response = work.get();
-        assertNotNull(response);
-        assertEquals(202, (int)response.getResponseCode());
-        assertEquals(5, work.getRequest().getRetryCountFromResponse());
-	}
-
-	public void testMakeTestRequest() throws Exception {
+	public void testRequest() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").create();
@@ -89,8 +54,8 @@ public class MainTest extends TestCase {
 		assertNotNull(results);
 		assertTrue(results.length() > 0);
 	}
-	
-	public void testMakeTestRequestWithHeaders() throws Exception {
+
+	public void testRequestWithHeaders() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").create();
@@ -228,65 +193,6 @@ public class MainTest extends TestCase {
 			assertNotNull(response.getResponseBytes());
 			assertTrue(response.getResponseBytes().length > 0);
         }
-	}
-	
-	public void testPriorityQueuing() throws Exception {
-		
-		// TODO: This test case SUCKS.  Update to something better when I have time.
-		CommManager.Builder commManagerBuilder = new CommManager.Builder();
-		final CommManager commManager = commManagerBuilder
-				.setName("TEST")
-				.setPriorityManagmentProvider(new DefaultPriorityManagmentProvider())
-				.create();
-
-		// Queue up a bunch of work with our-of-order priorities
-		int requestCount = 30;
-		final ConcurrentLinkedQueue<Work> finishedWork = new ConcurrentLinkedQueue<Work>();
-		final ConcurrentLinkedQueue<Work> failedWork = new ConcurrentLinkedQueue<Work>();
-		for(int i = 0; i < requestCount; i++) {
-			final int iFinal = i;
-			(new Thread(new Runnable() {
-				@Override
-				public void run() {
-					Work work = null;
-					try {
-						StartingPriority priority = StartingPriority.LOW;
-						if(iFinal < 10) {
-							priority = StartingPriority.HIGH;
-						} else if( (iFinal % 2) == 0 ) {
-							priority = StartingPriority.MEDIUM;
-						}
-						String url = String.format("https://raw.githubusercontent.com/eneko/data-repository/master/data/words.txt?arg=%1$d", iFinal);
-						work = commManager.enqueueWork(new URI(url), RequestMethod.GET, null, null, priority, false);
-						work.get();
-						finishedWork.add(work);
-					} catch(Exception e) {
-						e.printStackTrace();
-						failedWork.add(work);
-					}
-				}
-			})).start();
-		}
-
-		// Wait for all the test requests to finish
-		int maxWaitCount = 60;
-		while(((finishedWork.size() + failedWork.size()) < requestCount) && (maxWaitCount > 0)) {
-			Thread.sleep(1500);
-			maxWaitCount--;
-		}
-		_Logger.trace("finishedWork.size:%1$d failedWork.size:%2$d", finishedWork.size(), failedWork.size());
-		if((finishedWork.size() + failedWork.size()) < requestCount) {
-			Assert.fail("Not all test requests finished in time!");
-		}
-
-		// Ensure the requests finished in an order consistent with their priorities
-		Work previousWork = null;
-		for(Work work : finishedWork) {
-			if(previousWork != null) {
-				Assert.assertTrue(previousWork.getPriority().getValue() <= work.getPriority().getValue());
-			}
-			previousWork = work;
-		}
 	}
 
 }

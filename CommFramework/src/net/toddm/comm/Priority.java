@@ -20,6 +20,14 @@ public class Priority {
 
 	/** An enumeration of priority levels that calling code can claim for their {@Work} instances */
 	public enum StartingPriority {
+
+		// TODO: Consider the idea of a "NEVER PROMOTES" starting priority.
+		// This level would be lower priority than "LOW" and would never get promoted. It would be used when client code is declaring that, 
+		// in theory, it is OK if the work NEVER happens and if it does happen it's done when there is simply nothing else to work on. The 
+		// complication here is that this implies meaning that must be understood by the PriorityManagmentProvider implementation. Probably 
+		// the way to do this would simply be to create a "LOWEST" starting priority and create a well documented, well named 
+		// PriorityManagmentProvider implementation that makes it clear the "LOWEST" level is never promoted.
+
 		/** Work with this priority level will be done <b>after</b> any other pending work. */
 		LOW(10),
 		/** In general, unless you are sure that your work merits special priority, this is the default priority to use when submitting work. */
@@ -60,7 +68,7 @@ public class Priority {
 	public Work getWork() { return(this._work); }
 
 	/** Returns the {@link StartingPriority} that this instance started with. */
-	public int getStartingValue() { return(this._startingPriority.getPriorityValue()); }
+	public StartingPriority getStartingValue() { return(this._startingPriority); }
 
 	/** Returns the current priority value of this instance. */
 	public int getValue() { return(this._priority); }

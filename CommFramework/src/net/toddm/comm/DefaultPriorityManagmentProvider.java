@@ -48,10 +48,10 @@ public class DefaultPriorityManagmentProvider implements PriorityManagmentProvid
 		if(promote) {
 
 			// Promote priority and update timestamp
-			_Logger.trace("promotePriority() PRE [request:%1$d priority:%2$d]", priority.getWork().getId(), priority.getValue());
+			_Logger.trace("promotePriority() PRE [request:{} priority:{}]", priority.getWork().getId(), priority.getValue());
 			priority._lastPromotionTimestamp = System.currentTimeMillis();
 			priority._priority--;
-			_Logger.trace("promotePriority() POST [request:%1$d priority:%2$d]", priority.getWork().getId(), priority.getValue());
+			_Logger.trace("promotePriority() POST [request:{} priority:{}]", priority.getWork().getId(), priority.getValue());
 		}
 	}
 

@@ -17,7 +17,6 @@ package net.toddm.comm;
 
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutionException;
