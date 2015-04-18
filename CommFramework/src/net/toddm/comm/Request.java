@@ -33,6 +33,7 @@ public class Request {
 	
 	// TODO: Enforce a maximum total number of redirects allowed
 
+	// TODO: Add support for other HTTP request methods
 	/** HTTP request methods supported by the comm framework. */
 	public enum RequestMethod {
 		/** Standard HTTP GET */

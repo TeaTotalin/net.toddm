@@ -61,7 +61,7 @@ public class TestDefaultRetryPolicyProvider extends TestCase {
 	}
 
 	/** Use http://httpbin.org/ to simulate specific response shapes for testing */
-	public void testDefaultRetryPolicyProvider503Handling() throws Exception {
+	public void test503Handling() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").create();
@@ -76,7 +76,7 @@ public class TestDefaultRetryPolicyProvider extends TestCase {
 	}
 
 	/** Use http://httpbin.org/ to simulate specific response shapes for testing */
-	public void testDefaultRetryPolicyProvider202Handling() throws Exception {
+	public void test202Handling() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").create();
