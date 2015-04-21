@@ -28,11 +28,6 @@ import java.util.TreeMap;
  */
 public class Request {
 
-	// TODO: Store the end-point for a request (the URI) in a set of unique values.
-	// This allows us to maintain a redirect location history and guards against cyclical redirection.
-	
-	// TODO: Enforce a maximum total number of redirects allowed
-
 	// TODO: Add support for other HTTP request methods
 	/** HTTP request methods supported by the comm framework. */
 	public enum RequestMethod {
@@ -47,9 +42,9 @@ public class Request {
 		//TRACE
 	}
 
-	// TODO: Think about redirect support.
-	// Do we want to change the URI of an existing request while maintaining the ID or do we want to generate a new Request instance?
-	private URI _normalizedUri;
+	// I store the end-points for a request (the URIs) in a set of unique values.
+	// This allows me to maintain a redirect location history and guard against cyclically redirection.
+	private final LinkedList<URI> _normalizedEndPoints = new LinkedList<URI>();
 	private final RequestMethod _method;
 	private final byte[] _postData;
 	private final Map<String, String> _headers;
@@ -57,6 +52,7 @@ public class Request {
 	private final Integer _id;
 	private final boolean _cachingAllowed;
 
+	private int _redirectCount = 0;
 	private int _retryCountFromFailure = 0;
 	private int _retryCountFromResponse = 0;
 
@@ -85,12 +81,13 @@ public class Request {
 		}
 
 		// Set members
+		URI normalizedUri = uri.normalize();
 		this._method = method;
-		this._normalizedUri = uri.normalize();
+		this._normalizedEndPoints.addFirst(normalizedUri);
 		this._cachingAllowed = cachingAllowed;
 
 		// Used for hash code, ID, etc. Use extreme caution if changing.
-		this._queryParameters = Request.parseQueryParameters(this._normalizedUri, "UTF-8");
+		this._queryParameters = Request.parseQueryParameters(normalizedUri, "UTF-8");
 		this._postData = postData;
 		this._headers = headers;
 
@@ -118,10 +115,32 @@ public class Request {
 		return(this._cachingAllowed);
 	}
 
-	/** Returns the URI of this {@link Request} instance. */
+	/** Returns the most recent URI to be used for this {@link Request} instance. */
 	public URI getUri() {
-		return(this._normalizedUri);
+		return(this._normalizedEndPoints.getFirst());
 	}
+
+	/**
+	 * If the given URI has never been visited before for this {@link Request} instance this method updates the URI end-point of this 
+	 * request to the given new location and returns <b>true</b>. If this {@link Request} instance has seen the given URI before then 
+	 * nothing is changed and <b>false</b> is returned. This method is intended for redirection support (such as handling of a 302 responses).
+	 */
+	protected boolean redirect(URI newLocation) {
+		if(newLocation == null) { throw(new IllegalArgumentException("'newLocation' can not be NULL")); }
+
+		// Note: redirection does NOT update or change the request identity, the ID of this request will always be based the original URI
+		this._redirectCount++;
+		URI normalizedUri = newLocation.normalize();
+		if(!this._normalizedEndPoints.contains(normalizedUri)) {
+			this._normalizedEndPoints.addFirst(normalizedUri);
+			return(true);
+		} else {
+			return(false);
+		}
+	}
+
+	/** Returns the total number of times {@link #redirect(URI)} has been called on this {@link Request} instance. */
+	public int getRedirectCount() { return(this._redirectCount); }
 
 	/**
 	 * The ID of this {@link Request}. Requests have the same ID and are considered equal if their 
@@ -178,10 +197,11 @@ public class Request {
 	private int calculateId() {
 
 		// Deterministically build a text BLOB to hash for this request's ID
+		URI originalUri = this._normalizedEndPoints.getLast();
 		StringBuilder idSourceBuffer = new StringBuilder();
-		idSourceBuffer.append(this._normalizedUri.getScheme());
-		idSourceBuffer.append(this._normalizedUri.getHost());
-		idSourceBuffer.append(this._normalizedUri.getPath());
+		idSourceBuffer.append(originalUri.getScheme());
+		idSourceBuffer.append(originalUri.getHost());
+		idSourceBuffer.append(originalUri.getPath());
 
 		// _queryParameters is a TreeMap, so parameters are already in a consistent, sorted order
 		for(String key : this._queryParameters.keySet()) {
@@ -192,7 +212,7 @@ public class Request {
 		}
 
 		// If we have any POST or anchor data, add it
-		idSourceBuffer.append(this._normalizedUri.getFragment());
+		idSourceBuffer.append(originalUri.getFragment());
 		if((this._postData != null) && (this._postData.length > 0)) {
 
 			// Base64 encode the post data bytes to make some safe text
@@ -204,9 +224,9 @@ public class Request {
 		// not failing here if we have nothing else.
 		String idSourceText = idSourceBuffer.toString();
 		if((idSourceText == null) || (idSourceText.length() <= 0)) {
-			return(this._normalizedUri.getPort());
+			return(originalUri.getPort());
 		} else {
-			return(idSourceText.hashCode() + this._normalizedUri.getPort());
+			return(idSourceText.hashCode() + originalUri.getPort());
 		}
 	}
 

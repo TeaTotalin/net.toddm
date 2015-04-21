@@ -84,9 +84,11 @@ public final class CommManager {
 	//------------------------------
 
 	// TODO: Get configuration values from a config system
+	private final int _redirectLimit = 3;
 	private final int _maxSimultaneousRequests = 1;
 	private final int _connectTimeoutMilliseconds = 30000;
 	private final int _readTimeoutMilliseconds = 30000;
+	
 
 	private final ExecutorService _requestWorkExecutorService = Executors.newFixedThreadPool(_maxSimultaneousRequests);
 	private final LinkedList<Work> _queuedWork = new LinkedList<Work>();
@@ -125,7 +127,7 @@ public final class CommManager {
 		// This constructor will validate all the arguments
 		Work newWork = new Work(uri, method, postData, headers, priority, cachingAllowed);
 		Work resultWork = null;
-		_Logger.info("[thread:{}] enqueueWork() start", Thread.currentThread().getId());
+		_Logger.debug("[thread:{}] enqueueWork() start", Thread.currentThread().getId());
 
 		synchronized(_workManagmentLock) {
 
@@ -238,7 +240,7 @@ public final class CommManager {
 
 	/** Starts the work thread if it is not already running. It is safe to make this call multiple times. */
 	private void startWorking(String name) {
-		_Logger.info("[thread:{}] startWorking()", Thread.currentThread().getId());
+		_Logger.debug("[thread:{}] startWorking()", Thread.currentThread().getId());
 		synchronized(_workThreadLock) {
 			_workThreadStopping = false;
 			if(_workThread == null) {
@@ -246,7 +248,7 @@ public final class CommManager {
 			}
 			if(!_workThread.isAlive()) {
 				_workThread.start();
-				_Logger.info("[thread:{}] Thread started", Thread.currentThread().getId());
+				_Logger.debug("[thread:{}] Thread started", Thread.currentThread().getId());
 			} else {
 				_Logger.debug("[thread:{}] Thread already running", Thread.currentThread().getId());
 			}
@@ -256,7 +258,7 @@ public final class CommManager {
 	/** Stops the work thread if it is running. It is safe to make this call multiple times. This is a <strong>blocking</strong> method. */
 	@SuppressWarnings("unused")
 	private void stopWorking() {
-		_Logger.info("[thread:{}] stopWorking()", Thread.currentThread().getId());
+		_Logger.debug("[thread:{}] stopWorking()", Thread.currentThread().getId());
 		synchronized(_workThreadLock) {
 
 			// Can't stop if we are not running
@@ -281,7 +283,7 @@ public final class CommManager {
 				_Logger.error(String.format(Locale.US, "[thread:%1$d] failed", Thread.currentThread().getId()), e);
 			} finally {
 				_workThread = null;
-				_Logger.info("[thread:{}] Thread stopped", Thread.currentThread().getId());
+				_Logger.debug("[thread:{}] Thread stopped", Thread.currentThread().getId());
 			}
 		}
 	}
@@ -397,7 +399,7 @@ public final class CommManager {
 					try { Thread.sleep(5000); } catch(Exception f) { }  // No-op OK
 				}
 			}
-			_Logger.info("[thread:{}] Work Thread exited", Thread.currentThread().getId());
+			_Logger.debug("[thread:{}] Work Thread exited", Thread.currentThread().getId());
 		}
 
 	}
@@ -473,6 +475,11 @@ public final class CommManager {
 				// Create our connection
 				URL url = this._work.getRequest().getUri().toURL();
 				urlConnection = (HttpURLConnection) url.openConnection();
+
+				// We will be manually rolling redirection support for consistent behavior across Java 
+				// versions and for the ability to make redirection behavior full configurable, etc.
+				// TODO: Make the use of built-in HttpURLConnection redirection support a configurable option
+				urlConnection.setInstanceFollowRedirects(false);
 
 				// Configure our connection
 				urlConnection.setConnectTimeout(CommManager.this._connectTimeoutMilliseconds);
@@ -587,6 +594,30 @@ public final class CommManager {
 					this._work.setState(Status.COMPLETED);
 				}
 
+				// Support "3xx Location" response triggered redirects (if HttpURLConnection is not handling them for us already)
+				if( ((response.getResponseCode() == 301) || (response.getResponseCode() == 302) || (response.getResponseCode() == 303)) && 
+					(this._work.getRequest().getRedirectCount() < CommManager.this._redirectLimit) && 
+					(!urlConnection.getInstanceFollowRedirects()) )
+				{
+					URI targetUri = response.getLocationFromHeaders(this._work.getRequest());
+					if(_Logger.isDebugEnabled()) {
+						_Logger.debug("{} Redirecting from {} to {}", new Object[] { this._logPrefix, this._work.getRequest().getUri().toString(), targetUri.toString() });
+					}
+					this._work.getRequest().redirect(targetUri);  // This call increments the request redirect count
+
+					// We process redirects through the retry queue (to be retried immediately)
+					this._work.updateRetryAfterTimestamp(0);
+					this._work.setState(Status.REDIRECTING);
+					synchronized(_workManagmentLock) {
+						addWorkToQueue(this._work, ManagedQueue.RETRY);
+						this._work.addFutureTask(new FutureTask<Response>(new WorkCallable(this._work)));  // Add the future task for the new unit of work
+						_workManagmentLock.notify();
+					}
+
+					// We are done (for now at least) with this work
+					return(null);
+				}
+
 				// Offer the response to cache (guard against negative caching)
 				if((this._work.getRequest().isCachingAllowed()) && (CommManager.this._cacheProvider != null) && (response.isSuccessful())) {
 
@@ -602,11 +633,11 @@ public final class CommManager {
 						if((responseObjBytes != null) && (responseObjBytes.length > 0)) {
 
 							// Check the response headers for a caching TTL
-							Long ttl = ResponseCachingUtility.getTtlFromResponse(response);
+							Long ttl = response.getTtlFromHeaders();
 							if(ttl == null) { ttl = Long.MAX_VALUE; }  // Long.MAX_VALUE indicates never expiring
 
 							// Check the response headers for an ETag value
-							String eTag = ResponseCachingUtility.getETagFromResponse(response);
+							String eTag = response.getETagFromHeaders();
 
 							// TODO: Send eTag request header (when we have a stale cache entry)
 							// TODO: Handle 304 "Not Modified" caching related responses (should refresh timestamps on cache entry)
@@ -617,7 +648,7 @@ public final class CommManager {
 									ttl, 
 									eTag, 
 									this._work.getRequest().getUri());
-							_Logger.info("{} Response for request {} added to cache", this._logPrefix, this._work.getRequest().getId());
+							_Logger.debug("{} Response for request {} added to cache", this._logPrefix, this._work.getRequest().getId());
 
 							// We will go ahead and enforce LRU here as we may have just added a new cache entry
 							CommManager.this._cacheProvider.trimLru();
@@ -656,23 +687,25 @@ public final class CommManager {
 				// TODO: Ensure that Work state change and queue management both always happen within _workManagmentLock
 
 				switch(this._work.getState()) {
-					case CREATED:	// The work has been created, but has not started processing yet
+					case CREATED:		// The work has been created, but has not started processing yet
 						break;
-					case WAITING:	// The work is waiting in the pending work queue
+					case WAITING:		// The work is waiting in the pending work queue
 						break;
-					case RUNNING:	// The work is actively being processed
+					case RUNNING:		// The work is actively being processed
 						break;
-					case RETRYING:	// There is a pending retry attempt for the work
+					case RETRYING:		// There is a pending retry attempt for the work
 						break;
-					case CANCELLED:	// The work has been cancelled
-					case COMPLETED:	// The work has finished without being cancelled
+					case REDIRECTING:	// There is a pending retry attempt for the work
+						break;
+					case CANCELLED:		// The work has been cancelled
+					case COMPLETED:		// The work has finished without being cancelled
 
 						// Ensure finished work is no longer in any of the queues
 						if(_queuedWork.remove(this._work)) {
 							_Logger.error("{} Finished work has been removed from _queuedWork", this._logPrefix);
 						}
 						if(_activeWork.remove(this._work)) {
-							_Logger.info("{} Finished work has been removed from _activeWork", this._logPrefix);
+							_Logger.debug("{} Finished work has been removed from _activeWork", this._logPrefix);
 						}
 						if(_retryWork.remove(this._work)) {
 							_Logger.error("{} Finished work has been removed from _retryWork", this._logPrefix);

@@ -42,6 +42,8 @@ public class Work implements Future<Response> {
 		RUNNING,
 		/** There is a pending retry attempt for the {@link Work} instance */
 		RETRYING,
+		/** There is a pending redirect attempt for the {@link Work} instance */
+		REDIRECTING,
 		/** The {@link Work} instance has been cancelled */
 		CANCELLED,
 		/** The {@link Work} instance has finished without being cancelled */

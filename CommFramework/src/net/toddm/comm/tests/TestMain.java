@@ -28,7 +28,6 @@ import net.toddm.comm.CommManager;
 import net.toddm.comm.Priority.StartingPriority;
 import net.toddm.comm.Request.RequestMethod;
 import net.toddm.comm.Response;
-import net.toddm.comm.ResponseCachingUtility;
 import net.toddm.comm.Work;
 
 import org.slf4j.Logger;
@@ -53,6 +52,32 @@ public class TestMain extends TestCase {
         _Logger.trace(results);
 		assertNotNull(results);
 		assertTrue(results.length() > 0);
+	}
+	
+	public void testRequestRedirectAbsolute() throws Exception {
+
+		CommManager.Builder commManagerBuilder = new CommManager.Builder();
+		CommManager commManager = commManagerBuilder.setName("TEST").create();
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/redirect-to?url=http%3A%2F%2Fwww.toddm.net%2F"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
+		assertNotNull(work);
+
+		Response response = work.get();
+		assertNotNull(response);
+		assertEquals(200, (int)response.getResponseCode());
+		assertEquals(1, work.getRequest().getRedirectCount());
+	}
+
+	public void testRequestRedirectRelative() throws Exception {
+
+		CommManager.Builder commManagerBuilder = new CommManager.Builder();
+		CommManager commManager = commManagerBuilder.setName("TEST").create();
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/relative-redirect/3"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
+		assertNotNull(work);
+
+		Response response = work.get();
+		assertNotNull(response);
+		assertEquals(200, (int)response.getResponseCode());
+		assertEquals(3, work.getRequest().getRedirectCount());
 	}
 
 	public void testRequestWithHeaders() throws Exception {
@@ -89,12 +114,12 @@ public class TestMain extends TestCase {
         assertEquals(200, (int)response.getResponseCode());
 
         // We happen to know our test request returns a TTL of 3600 seconds and an ETag value
-        Long ttl = ResponseCachingUtility.getTtlFromResponse(response);
+        Long ttl = response.getTtlFromHeaders();
         assertNotNull(ttl);
         assertEquals(3600000, ttl.longValue());
         _Logger.trace("TTL from response headers: " + ttl);
 
-        String eTag = ResponseCachingUtility.getETagFromResponse(response);
+        String eTag = response.getETagFromHeaders();
         assertNotNull(eTag);
         _Logger.trace("ETag from response headers: " + eTag);
 	}
