@@ -29,7 +29,7 @@ public class DefaultPriorityManagmentProvider implements PriorityManagmentProvid
 
 	private static final Logger _Logger = LoggerFactory.getLogger(DefaultPriorityManagmentProvider.class.getSimpleName());
 
-	// TODO: This value should probably come from configuration
+	// TODO: This Promotion Interval In Milliseconds value should probably come from configuration
 	private static long _PromotionIntervalInMilliseconds = 60000;  // One minute
 
 	/**

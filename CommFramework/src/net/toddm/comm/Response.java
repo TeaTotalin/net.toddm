@@ -49,8 +49,7 @@ public class Response implements Serializable {
 	/** {@serial} */
 	private Map<String, List<String>> _headers;
 
-	/** Constructor for the implementation of {@link Serializable}, should not be used otherwise. */
-	public Response() {}
+	private long _instanceCreationTime = System.currentTimeMillis();
 
 	protected Response(byte[] responseBytes, Map<String, List<String>> headers, int responseCode, int requestId, int responseTime) {
 		this._responseBytes = responseBytes;
@@ -100,6 +99,9 @@ public class Response implements Serializable {
 	/** The HTTP header values from the response. */
 	public Map<String, List<String>> getHeaders() { return(this._headers); }
 
+	/** Returns the epoch timestamp in milliseconds of when this instance of {@link Response} was created. */
+	protected long getInstanceCreationTime() { return(this._instanceCreationTime); }
+
 	//*********************************************************************************************
 	// Header parsing helpers
 
@@ -117,9 +119,9 @@ public class Response implements Serializable {
 
 			if((this._headers != null) && (this._headers.containsKey("Location")) && (this._headers.get("Location") != null) && (this._headers.get("Location").size() > 0)) {
 				String locationStr = this._headers.get("Location").get(0);
+				location = new URI(locationStr);
 
 				// Rewrite URI as absolute if needed
-				location = new URI(locationStr);
 				if(locationStr.trim().startsWith("/")) {
 					location = new URI(
 						request.getUri().getScheme(), 
@@ -129,7 +131,6 @@ public class Response implements Serializable {
 						location.getPath(), 
 						request.getUri().getQuery(), 
 						location.getFragment());
-					//location = (new URL(request.getUri().toURL(), locationStr).toURI());
 				}
 			}
 
@@ -262,6 +263,8 @@ public class Response implements Serializable {
 		if(outStream.size() > 0) {
 			this._responseBytes = outStream.toByteArray();
 		}
+		
+		this._instanceCreationTime = System.currentTimeMillis();
 	}
 
 }

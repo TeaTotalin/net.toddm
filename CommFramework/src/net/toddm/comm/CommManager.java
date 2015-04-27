@@ -161,21 +161,14 @@ public final class CommManager {
 				Response cachedResponse = null;
 				if((cachingAllowed) && (this._cacheProvider != null)) {
 
-					// TODO: Allowing the use of stale cache entries should come from config, maybe allowing request instance to override
-					CacheEntry cacheEntry = this._cacheProvider.get(Integer.toString(newWork.getRequest().getId()), false);
-					if((cacheEntry != null) && (cacheEntry.getBytesValue() != null) && (cacheEntry.getBytesValue().length > 0)) {
+					// If we have a cached response for the request add it to the work, this will allow us to properly handle eTag and 304 response work later
+					CacheEntry cacheEntry = this._cacheProvider.get(Integer.toString(newWork.getRequest().getId()), true);
+					if(cacheEntry != null) {
+						newWork.setCachedResponse(cacheEntry);
 
-						ByteArrayInputStream inStream = null;
-						ObjectInput inObj = null;
-						try {
-							inStream = new ByteArrayInputStream(cacheEntry.getBytesValue());
-							inObj = new ObjectInputStream(inStream);
-							cachedResponse = (Response)inObj.readObject();
-						} catch (Exception e) {
-							_Logger.error("Response de-serialization from cache failed", e);
-						} finally {
-							if(inObj != null) { try { inObj.close(); } catch(Exception e) {} } // No-op an exception OK here
-							if(inStream != null) { try { inStream.close(); } catch(Exception e) {} } // No-op an exception OK here
+						// TODO: Allowing the use of stale cache entries should come from config, maybe allowing request instance to override
+						if(!cacheEntry.hasExpired()) {
+							cachedResponse = getResponseFromCacheEntry(cacheEntry);
 						}
 					}
 				}
@@ -206,6 +199,33 @@ public final class CommManager {
 		}
 		
 		return(resultWork);
+	}
+
+	/**
+	 * Deserializes a cached {@link Response} instance from the give {@link CacheEntry} instance and returns it.
+	 * If deserialization fails or the cache entry does not contain a response object NULL is returned.
+	 */
+	private Response getResponseFromCacheEntry(CacheEntry cacheEntry) {
+
+		Response cachedResponse = null;
+		if((cacheEntry.getBytesValue() != null) && (cacheEntry.getBytesValue().length > 0)) {
+			ByteArrayInputStream inStream = null;
+			ObjectInput inObj = null;
+
+			try {
+	
+				inStream = new ByteArrayInputStream(cacheEntry.getBytesValue());
+				inObj = new ObjectInputStream(inStream);
+				cachedResponse = (Response)inObj.readObject();
+	
+			} catch (Exception e) {
+				_Logger.error("Response de-serialization from cache failed", e);
+			} finally {
+				if(inObj != null) { try { inObj.close(); } catch(Exception e) {} } // No-op an exception OK here
+				if(inStream != null) { try { inStream.close(); } catch(Exception e) {} } // No-op an exception OK here
+			}
+		}
+		return(cachedResponse);
 	}
 
 	/**
@@ -488,11 +508,21 @@ public final class CommManager {
 				urlConnection.setRequestMethod(this._work.getRequest().getMethod().name());
 				_Logger.debug("{} Making an HTTP {} request", this._logPrefix, this._work.getRequest().getMethod().name());
 
-				// Add request headers if we have any for this request
+				// Add any common request headers. Headers set here will be overridden below if there are duplicates.
+				//urlConnection.setRequestProperty("Accept-Encoding", "gzip");
+				urlConnection.setRequestProperty("Cache-Control", "no-transform");
+
+				// Add request headers if we have any, overriding common headers set above if there are duplicates.
 				if(this._work.getRequest().getHeaders() != null) {
 					for(String name : this._work.getRequest().getHeaders().keySet()) {
 						urlConnection.setRequestProperty(name, this._work.getRequest().getHeaders().get(name));
 					}
+				}
+
+				// If we have old cache content for this work set the "If-None-Match" header
+				CacheEntry cacheEntry = this._work.getCachedResponse();
+				if((cacheEntry != null) && (cacheEntry.getEtag() != null) && (cacheEntry.getEtag().length() > 0)) {
+					urlConnection.setRequestProperty("If-None-Match", cacheEntry.getEtag());
 				}
 
 				// Add the POST body if we have one (this must be done before establishing the connection)
@@ -533,28 +563,11 @@ public final class CommManager {
 					}
 				
 				} catch(Exception e) {
-					
-					// An error occurred while doing the on-the-wire work, check if we should retry the request later
+
 					_Logger.error(this._logPrefix, e);
-					RetryProfile retryProfile = CommManager.this._retryPolicyProvider.shouldRetry(this._work.getRequest(), e);
-					if(retryProfile.shouldRetry()) {
 
-						// This work should be retried, make it so...
-						this._work.updateRetryAfterTimestamp(retryProfile.getRetryAfterMilliseconds());
-						this._work.getRequest().incrementRetryCountFromFailure();
-						this._work.setState(Status.RETRYING);
-
-						// Add the failed request to the retry list and kick the worker thread so it wakes up to recalculate it's sleep time
-						synchronized(_workManagmentLock) {
-							addWorkToQueue(this._work, ManagedQueue.RETRY);
-
-							// Add the retry unit of work to the Work instance
-							this._work.addFutureTask(new FutureTask<Response>(new WorkCallable(this._work)));
-							_workManagmentLock.notify();
-						}
-					} else {
-						this._work.setState(Status.COMPLETED);
-					}
+					// Update the work state based on the exception
+					this.handleWorkUpdatesOnException(e);
 
 					// We are done (for now at least) with this work
 					return(null);
@@ -570,96 +583,8 @@ public final class CommManager {
 				this._work.setResponse(response);
 				_Logger.debug("{} Request finished with a {} response code", this._logPrefix, this._work.getResponse().getResponseCode());
 
-				// Check for a response triggered retry
-				RetryProfile retryProfile = CommManager.this._retryPolicyProvider.shouldRetry(this._work.getRequest(), response);
-				if(retryProfile.shouldRetry()) {
-
-					// This work should be retried, make it so...
-					this._work.updateRetryAfterTimestamp(retryProfile.getRetryAfterMilliseconds());
-					this._work.getRequest().incrementRetryCountFromResponse();
-					this._work.setState(Status.RETRYING);
-
-					// Add the failed request to the retry list and kick the worker thread so it wakes up to recalculate it's sleep time
-					synchronized(_workManagmentLock) {
-						addWorkToQueue(this._work, ManagedQueue.RETRY);
-
-						// Add the retry unit of work to the Work instance
-						this._work.addFutureTask(new FutureTask<Response>(new WorkCallable(this._work)));
-						_workManagmentLock.notify();
-					}
-					
-					// We are done (for now at least) with this work
-					return(null);
-				} else {
-					this._work.setState(Status.COMPLETED);
-				}
-
-				// Support "3xx Location" response triggered redirects (if HttpURLConnection is not handling them for us already)
-				if( ((response.getResponseCode() == 301) || (response.getResponseCode() == 302) || (response.getResponseCode() == 303)) && 
-					(this._work.getRequest().getRedirectCount() < CommManager.this._redirectLimit) && 
-					(!urlConnection.getInstanceFollowRedirects()) )
-				{
-					URI targetUri = response.getLocationFromHeaders(this._work.getRequest());
-					if(_Logger.isDebugEnabled()) {
-						_Logger.debug("{} Redirecting from {} to {}", new Object[] { this._logPrefix, this._work.getRequest().getUri().toString(), targetUri.toString() });
-					}
-					this._work.getRequest().redirect(targetUri);  // This call increments the request redirect count
-
-					// We process redirects through the retry queue (to be retried immediately)
-					this._work.updateRetryAfterTimestamp(0);
-					this._work.setState(Status.REDIRECTING);
-					synchronized(_workManagmentLock) {
-						addWorkToQueue(this._work, ManagedQueue.RETRY);
-						this._work.addFutureTask(new FutureTask<Response>(new WorkCallable(this._work)));  // Add the future task for the new unit of work
-						_workManagmentLock.notify();
-					}
-
-					// We are done (for now at least) with this work
-					return(null);
-				}
-
-				// Offer the response to cache (guard against negative caching)
-				if((this._work.getRequest().isCachingAllowed()) && (CommManager.this._cacheProvider != null) && (response.isSuccessful())) {
-
-					byte[] responseObjBytes = null;
-					ByteArrayOutputStream outStream = null;
-					ObjectOutput out = null;
-					try {
-
-						outStream = new ByteArrayOutputStream();
-						out = new ObjectOutputStream(outStream);
-						out.writeObject(response);
-						responseObjBytes = outStream.toByteArray();
-						if((responseObjBytes != null) && (responseObjBytes.length > 0)) {
-
-							// Check the response headers for a caching TTL
-							Long ttl = response.getTtlFromHeaders();
-							if(ttl == null) { ttl = Long.MAX_VALUE; }  // Long.MAX_VALUE indicates never expiring
-
-							// Check the response headers for an ETag value
-							String eTag = response.getETagFromHeaders();
-
-							// TODO: Send eTag request header (when we have a stale cache entry)
-							// TODO: Handle 304 "Not Modified" caching related responses (should refresh timestamps on cache entry)
-
-							CommManager.this._cacheProvider.add(
-									Integer.toString(this._work.getRequest().getId()), 
-									responseObjBytes, 
-									ttl, 
-									eTag, 
-									this._work.getRequest().getUri());
-							_Logger.debug("{} Response for request {} added to cache", this._logPrefix, this._work.getRequest().getId());
-
-							// We will go ahead and enforce LRU here as we may have just added a new cache entry
-							CommManager.this._cacheProvider.trimLru();
-						}
-					} catch(Exception e) {
-						_Logger.error("Response serialization to cache failed", e);
-					} finally {
-						if(out != null) { try { out.close(); } catch(Exception e) {} } // No-op on exception OK here
-						if(outStream != null) { try { outStream.close(); } catch(Exception e) {} } // No-op on exception OK here
-					}
-				}
+				// Update the work state based on the response
+				this.handleWorkUpdatesOnResponse(response, urlConnection);
 
 			} catch (MalformedURLException e) {
 				throw(new CommException(e));
@@ -670,11 +595,159 @@ public final class CommManager {
 				// Always clean up
 		        if(in != null) { try { in.close(); } catch(Exception e) {} }  // Exception suppression is OK here
 		        if(urlConnection != null) { try { urlConnection.disconnect(); } catch(Exception e) {} }  // Exception suppression is OK here
+				_Logger.trace("{} Processing took {} milliseconds", this._logPrefix, (System.currentTimeMillis() - start));
 			}
 
-			_Logger.trace("{} Processing took {} milliseconds", this._logPrefix, (System.currentTimeMillis() - start));
-
 			return(response);
+		}
+
+		/** This method updates the current work state based on the given exception.  The work is either queued for retry or marked as completed. */
+		private void handleWorkUpdatesOnException(Exception e) {
+
+			// Check for an exception triggered retry
+			RetryProfile retryProfile = CommManager.this._retryPolicyProvider.shouldRetry(this._work.getRequest(), e);
+			if(retryProfile.shouldRetry()) {
+
+				// This work should be retried, make it so...
+				this._work.updateRetryAfterTimestamp(retryProfile.getRetryAfterMilliseconds());
+				this._work.getRequest().incrementRetryCountFromFailure();
+				this._work.setState(Status.RETRYING);
+
+				// Add the failed request to the retry list and kick the worker thread so it wakes up to recalculate it's sleep time
+				synchronized(_workManagmentLock) {
+					addWorkToQueue(this._work, ManagedQueue.RETRY);
+
+					// Add the retry unit of work to the Work instance
+					this._work.addFutureTask(new FutureTask<Response>(new WorkCallable(this._work)));
+					_workManagmentLock.notify();
+				}
+			} else {
+				this._work.setState(Status.COMPLETED);
+			}
+		}
+
+		/**
+		 * This method updates the current work state based on the given {@link Response}.
+		 * This can potentially result in work being queued for the future, cache entries being updated, etc.
+		 * <p>
+		 * @param response The {@link Response} that resulted from attempting the current work.
+		 */
+		private void handleWorkUpdatesOnResponse(Response response, HttpURLConnection urlConnection) {
+
+			// Check for a response triggered retry or redirect
+			RetryProfile retryProfile = CommManager.this._retryPolicyProvider.shouldRetry(this._work.getRequest(), response);
+			if(retryProfile.shouldRetry()) {
+
+				// ************ RETRY ************
+				// This work should be retried, make it so...
+				this._work.updateRetryAfterTimestamp(retryProfile.getRetryAfterMilliseconds());
+				this._work.getRequest().incrementRetryCountFromResponse();
+				this._work.setState(Status.RETRYING);
+
+				// Update the work for retry and kick the worker thread so it wakes up to recalculate it's sleep time
+				this._work.addFutureTask(new FutureTask<Response>(new WorkCallable(this._work)));  // Add the future task for the retry work
+				synchronized(_workManagmentLock) {
+					addWorkToQueue(this._work, ManagedQueue.RETRY);
+					_workManagmentLock.notify();
+				}
+
+			} else if(	((response.getResponseCode() == 301) || (response.getResponseCode() == 302) || (response.getResponseCode() == 303)) && 
+						(this._work.getRequest().getRedirectCount() < CommManager.this._redirectLimit) && 
+						(!urlConnection.getInstanceFollowRedirects()) )
+			{
+
+				// ************ REDIRECT ************
+				// HttpURLConnection is not handling redirects for us, so support "3xx Location" response triggered redirecting
+				URI targetUri = response.getLocationFromHeaders(this._work.getRequest());
+				if(_Logger.isDebugEnabled()) {
+					_Logger.debug("{} Redirecting from {} to {}", new Object[] { this._logPrefix, this._work.getRequest().getUri().toString(), targetUri.toString() });
+				}
+				this._work.getRequest().redirect(targetUri);  // This call increments the request redirect count
+
+				// We process redirects through the retry queue (to be retried immediately)
+				this._work.updateRetryAfterTimestamp(0);
+				this._work.setState(Status.REDIRECTING);
+				this._work.addFutureTask(new FutureTask<Response>(new WorkCallable(this._work)));  // Add the future task for the redirect work
+				synchronized(_workManagmentLock) {
+					addWorkToQueue(this._work, ManagedQueue.RETRY);
+					_workManagmentLock.notify();
+				}
+
+			} else if(	(this._work.getRequest().isCachingAllowed()) && 
+						(this._work.getCachedResponse() != null) && 
+						(CommManager.this._cacheProvider != null) && 
+						(response.getResponseCode() == 304)) 
+			{
+
+				// ************ CACHE STILL VALID ************
+				// Handle 304 "Not Modified" caching related responses (refreshes timestamps on cache entry)
+				CacheEntry cacheEntry = this._work.getCachedResponse();
+
+				// Check for a new TTL value from the response
+				Long ttl = response.getTtlFromHeaders();
+				if(ttl == null) { ttl = cacheEntry.getTtl(); }
+
+				// Check for a new ETag value from the response
+				String eTag = response.getETagFromHeaders();
+				if((eTag == null) || (eTag.length() <= 0)) { eTag = cacheEntry.getEtag(); }
+
+				// Update the cache entry. We will update using the cache entry instance that we saved on the 
+				// Work object. The entry in the cache may have already been removed by LRU enforcement, etc.
+				CommManager.this._cacheProvider.remove(cacheEntry.getKey());
+				CommManager.this._cacheProvider.add(cacheEntry.getKey(), cacheEntry.getBytesValue(), ttl, eTag, cacheEntry.getUri());
+
+				// Add cached response to work
+				Response cachedResponse = getResponseFromCacheEntry(cacheEntry);
+				this._work.setResponse(cachedResponse);
+				this._work.addFutureTask(new CachedResponseFuture(cachedResponse));
+				this._work.setState(Status.COMPLETED);
+				_Logger.info("[thread:{}] handleWorkUpdatesOnResponse() Returning cached results post 304 [id:{}]", Thread.currentThread().getId(), this._work.getId());
+
+			} else if((this._work.getRequest().isCachingAllowed()) && (CommManager.this._cacheProvider != null) && (response.isSuccessful())) {
+
+				// ************ CACHE ADD ************
+				byte[] responseObjBytes = null;
+				ByteArrayOutputStream outStream = null;
+				ObjectOutput out = null;
+				try {
+
+					outStream = new ByteArrayOutputStream();
+					out = new ObjectOutputStream(outStream);
+					out.writeObject(response);
+					responseObjBytes = outStream.toByteArray();
+					if((responseObjBytes != null) && (responseObjBytes.length > 0)) {
+
+						// Check the response headers for a caching TTL
+						Long ttl = response.getTtlFromHeaders();
+						if(ttl == null) { ttl = Long.MAX_VALUE; }  // Long.MAX_VALUE indicates never expiring
+
+						// Check the response headers for an ETag value
+						String eTag = response.getETagFromHeaders();
+
+						CommManager.this._cacheProvider.add(
+								Integer.toString(this._work.getRequest().getId()), 
+								responseObjBytes, 
+								ttl, 
+								eTag, 
+								this._work.getRequest().getUri());
+						_Logger.debug("{} Response for request {} added to cache", this._logPrefix, this._work.getRequest().getId());
+
+						// We will go ahead and enforce LRU here as we may have just added a new cache entry
+						CommManager.this._cacheProvider.trimLru();
+					}
+				} catch(Exception e) {
+					_Logger.error("Response serialization to cache failed", e);
+				} finally {
+					if(out != null) { try { out.close(); } catch(Exception e) {} } // No-op on exception OK here
+					if(outStream != null) { try { outStream.close(); } catch(Exception e) {} } // No-op on exception OK here
+				}
+				this._work.setState(Status.COMPLETED);
+
+			} else {
+
+				// No additional work needed, just update as done
+				this._work.setState(Status.COMPLETED);
+			}
 		}
 
 		private void cleanup() {

@@ -22,6 +22,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * An implementation of the {@link CacheProvider} interface that is backed by runtime memory.
  * This cache will not persist across different instances of a process.
@@ -30,6 +33,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author Todd S. Murchison
  */
 public class MemoryCacheProvider implements CacheProvider {
+	
+	private static final Logger _Logger = LoggerFactory.getLogger(MemoryCacheProvider.class.getSimpleName());
 
 	private static final String _DefaultNamespace = "e98fa3ee-cb8d-4e37-8b43-adb04036031a";
 
@@ -61,6 +66,9 @@ public class MemoryCacheProvider implements CacheProvider {
 
 		// The constructor used in the line below does argument validation
 		this._keyToEntry.put(this.getLookupKey(key), new CacheEntry(key, value, ttl, eTag, sourceUri));
+		if(_Logger.isTraceEnabled()) {
+			_Logger.trace("Cache entry added [key:{} ttl:{} eTag:{} sourceUri:{}]", new Object[] { key, ttl, eTag, sourceUri });
+		}
 		return(true);
 	}
 
@@ -70,6 +78,9 @@ public class MemoryCacheProvider implements CacheProvider {
 
 		// The constructor used in the line below does argument validation
 		this._keyToEntry.put(this.getLookupKey(key), new CacheEntry(key, value, ttl, eTag, sourceUri));
+		if(_Logger.isTraceEnabled()) {
+			_Logger.trace("Cache entry added [key:{} ttl:{} eTag:{} sourceUri:{}]", new Object[] { key, ttl, eTag, sourceUri });
+		}
 		return(true);
 	}
 

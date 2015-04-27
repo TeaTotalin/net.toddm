@@ -23,6 +23,7 @@ import java.util.Map;
 
 import junit.framework.Assert;
 import junit.framework.TestCase;
+import net.toddm.cache.CacheEntry;
 import net.toddm.cache.MemoryCacheProvider;
 import net.toddm.comm.CommManager;
 import net.toddm.comm.Priority.StartingPriority;
@@ -124,7 +125,38 @@ public class TestMain extends TestCase {
         _Logger.trace("ETag from response headers: " + eTag);
 	}
 
-	public void testRequestsWithCaching() throws Exception {
+	// TODO: Find a better way to test 304, this currently requires manually examining the log after running
+	public void test304Responses() throws Exception {
+
+		MemoryCacheProvider cache = new MemoryCacheProvider("testCache");
+		CommManager.Builder commManagerBuilder = new CommManager.Builder();
+		CommManager commManager = commManagerBuilder
+				.setName("TEST")
+				.setCacheProvider(cache)
+				.create();
+
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/cache"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, true);
+        assertNotNull(work);
+
+        Response response = work.get();
+        assertNotNull(response);
+        assertEquals(200, (int)response.getResponseCode());
+
+        // Update the cache TTL so it's expired
+        CacheEntry cacheEntry = cache.get(Integer.toString(work.getId()), true);
+        cache.add(cacheEntry.getKey(), cacheEntry.getBytesValue(), 100, cacheEntry.getEtag(), cacheEntry.getUri());
+
+        Thread.sleep(101);
+
+		work = commManager.enqueueWork(new URI("http://httpbin.org/cache"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, true);
+        assertNotNull(work);
+
+        response = work.get();
+        assertNotNull(response);
+        assertEquals(200, (int)response.getResponseCode());
+	}
+
+	public void testRequestWithCaching() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder

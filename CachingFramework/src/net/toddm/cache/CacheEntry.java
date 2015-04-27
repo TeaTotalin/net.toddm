@@ -145,8 +145,8 @@ public class CacheEntry {
 	public Long getTimestampModified() { return(this._timestampModified); }
 
 	/**
-	 * If this {@link CacheEntry} instance has expired, based on it's TTL value and last 
-	 * modified time, this method will return <b>true</b>, otherwise <b>false</b> is returned.
+	 * If this {@link CacheEntry} instance has expired, based on it's TTL value and creation 
+	 * time, this method will return <b>true</b>, otherwise <b>false</b> is returned.
 	 */
 	public boolean hasExpired() {
 		if((this.getTtl() == null) || (this.getTtl() == Long.MAX_VALUE)) {
@@ -154,7 +154,7 @@ public class CacheEntry {
 			return(false);
 		}
 		long now = System.currentTimeMillis();
-		long expiresOn = this.getTimestampModified() + this.getTtl();
+		long expiresOn = this.getTimestampCreated() + this.getTtl();
 		return(expiresOn < now);
 	}
 

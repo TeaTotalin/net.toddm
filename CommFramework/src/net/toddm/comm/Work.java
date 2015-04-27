@@ -17,6 +17,8 @@ package net.toddm.comm;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutionException;
@@ -25,12 +27,22 @@ import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import net.toddm.cache.CacheEntry;
 import net.toddm.comm.Priority.StartingPriority;
 
 /**
+ * Represents a unit of work being managed by the Comm Framework.  This class is the primary way that client code interacts 
+ * with work it has submitted to the Comm Framework, including blocking on that work as needed. These units of work represent 
+ * everything needed by the Comm Framework to reach a remote end-point and elicit a response.
+ * 
  * @author Todd S. Murchison
  */
 public class Work implements Future<Response> {
+
+	private static final Logger _Logger = LoggerFactory.getLogger(Work.class.getSimpleName());
 
 	/** An set of possible states that work can be in */
 	public enum Status {
@@ -56,6 +68,7 @@ public class Work implements Future<Response> {
 
 	private Status _state = Status.CREATED;
 	private Response _response = null;
+	private CacheEntry _cachedResponse = null;
 	private long _retryAfterTimestamp = 0;
 
 	protected Work(
@@ -100,7 +113,13 @@ public class Work implements Future<Response> {
 	public Response getResponse() { return(this._response); }
 
 	/** Sets the response that resulted from processing this work. NULL is a valid value. */
-	public void setResponse(Response response) { this._response = response; }
+	protected void setResponse(Response response) { this._response = response; }
+
+	/** If this {@link Work} instance has a cached response this method returns the {@link CacheEntry} that represents that response, or NULL if there is no cached response. */
+	protected CacheEntry getCachedResponse() { return(this._cachedResponse); }
+
+	/** Sets a cached response for this {@link Work} instance. NULL is a valid value. */
+	protected void setCachedResponse(CacheEntry cachedResponse) { this._cachedResponse = cachedResponse; }
 
 	/** Returns the most recent {@link FutureTask} instance that defines work to do for this {@link Work} instance, or NULL if there isn't one. */
 	protected FutureTask<Response> getFutureTask() { return(this._futureTasks.peek()); }
@@ -159,7 +178,7 @@ public class Work implements Future<Response> {
 	/** {@inheritDoc} */
 	@Override
 	public boolean cancel(boolean interruptAllowed) {
-		// TODO: Cancel may need to be done via the CommManager...
+		// TODO: Cancel needs to be done via the CommManager...
 		boolean cancelled = true;
 		for(FutureTask<Response> future : this._futureTasks) {
 			cancelled = cancelled && future.cancel(interruptAllowed);
@@ -208,8 +227,10 @@ public class Work implements Future<Response> {
 			}
 		}
 
-		// TODO: Do we need to explicitly sort responses to find the newest one to return?
-		
+		// Sort responses to ensure we return the newest most relevant one?
+		Collections.sort(responses, _ResponseComparator);
+
+		_Logger.debug("Done waiting on Work [responseCount:{} futureTaskCount:{}]", responseCount, this._futureTasks.size());
 		if(responses.size() <= 0) {
 			return(null);
 		} else {
@@ -228,5 +249,20 @@ public class Work implements Future<Response> {
 	public boolean isCancelled() {
 		return(this._state == Status.CANCELLED);
 	}
+
+	/**
+	 * A simple comparator to sort responses based on when the instances were created. We base this on instance creation 
+	 * time rather than when the response was received to cover cases of serving previously cached responses.
+	 */
+	private static final Comparator<Response> _ResponseComparator = new Comparator<Response>() {
+		@Override
+		public int compare(Response lhs, Response rhs) {
+			if(lhs == null) { throw(new IllegalArgumentException("'lhs' can not be NULL")); }
+			if(rhs == null) { throw(new IllegalArgumentException("'rhs' can not be NULL")); }
+
+			// Calculate order based on when the Response instances where created
+			return(Long.compare(rhs.getInstanceCreationTime(), lhs.getInstanceCreationTime()));
+		}
+	};
 
 }
