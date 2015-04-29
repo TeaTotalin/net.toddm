@@ -178,7 +178,7 @@ public class Work implements Future<Response> {
 	/** {@inheritDoc} */
 	@Override
 	public boolean cancel(boolean interruptAllowed) {
-		// TODO: Cancel needs to be done via the CommManager...
+		// TODO: Cancel needs to be done via the CommManager (also return value meaning is incorrect with this implementation)
 		boolean cancelled = true;
 		for(FutureTask<Response> future : this._futureTasks) {
 			cancelled = cancelled && future.cancel(interruptAllowed);

@@ -29,6 +29,8 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -39,6 +41,13 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.FutureTask;
+import java.util.zip.GZIPInputStream;
+
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 import net.toddm.cache.CacheEntry;
 import net.toddm.cache.CacheProvider;
@@ -59,15 +68,9 @@ import org.slf4j.LoggerFactory;
  */
 public final class CommManager {
 
-	// TODO: failure policies / off-line modes - should cover graceful recovery from service outage, etc.
+	// TODO: Create sample client for Tales services:  https://github.com/Talvish/Tales/tree/master/product
 	//
-	// TODO: https://github.com/Talvish/Tales/tree/master/product
-	//
-	// TODO: pluggable response body handling?
-	//
-	// TODO: GZIP support
-	//
-	// TODO: Support use of end-points with bad SSL certs via configuration to allow or disallow
+	// TODO: Pluggable response body handling?
 
 	private static final Logger _Logger = LoggerFactory.getLogger(CommManager.class.getSimpleName());
 
@@ -75,22 +78,65 @@ public final class CommManager {
 	// For CommManager access we are going to use a Builder -> Setters -> Create pattern. Instances of CommManager 
 	// are created by first creating an instance of CommManager.Builder, calling setters on that Builder instance, 
 	// and then calling create() on that Builder instance, which returns a CommManager instance.
-	private CommManager(String name, CacheProvider cacheProvider, PriorityManagmentProvider priorityManagmentProvider, RetryPolicyProvider retryPolicyProvider) {
+	private CommManager(
+			String name, 
+			CacheProvider cacheProvider, 
+			PriorityManagmentProvider priorityManagmentProvider, 
+			RetryPolicyProvider retryPolicyProvider, 
+			ConfigurationProvider configurationProvider) 
+	{
 		this._cacheProvider = cacheProvider;
 		this._priorityManagmentProvider = priorityManagmentProvider;
 		this._retryPolicyProvider = retryPolicyProvider;
+		this._configurationProvider = configurationProvider;
+
+		// TODO: Consider if we want to support "config refresh" or real-time config changes. Currently we "snap-shot" some values, like here.
+		// Pull configuration values that we will use to operate
+		if(this._configurationProvider.contains(DefaultConfigurationProvider.KeyRedirectLimit)) {
+			this._redirectLimit = this._configurationProvider.getInt(DefaultConfigurationProvider.KeyRedirectLimit);
+		} else {
+			this._redirectLimit = 3;
+		}
+		if(this._configurationProvider.contains(DefaultConfigurationProvider.KeyMaxSimultaneousRequests)) {
+			this._maxSimultaneousRequests = this._configurationProvider.getInt(DefaultConfigurationProvider.KeyMaxSimultaneousRequests);
+		} else {
+			this._maxSimultaneousRequests = 2;
+		}
+		if(this._configurationProvider.contains(DefaultConfigurationProvider.KeyConnectTimeoutMilliseconds)) {
+			this._connectTimeoutMilliseconds = this._configurationProvider.getInt(DefaultConfigurationProvider.KeyConnectTimeoutMilliseconds);
+		} else {
+			this._connectTimeoutMilliseconds = 30000;
+		}
+		if(this._configurationProvider.contains(DefaultConfigurationProvider.KeyReadTimeoutMilliseconds)) {
+			this._readTimeoutMilliseconds = this._configurationProvider.getInt(DefaultConfigurationProvider.KeyReadTimeoutMilliseconds);
+		} else {
+			this._readTimeoutMilliseconds = 30000;
+		}
+		if(this._configurationProvider.contains(DefaultConfigurationProvider.KeyDisableSSLCertChecking)) {
+			this._disableSSLCertChecking = this._configurationProvider.getBoolean(DefaultConfigurationProvider.KeyDisableSSLCertChecking);
+		} else {
+			this._disableSSLCertChecking = false;
+		}
+		if(this._configurationProvider.contains(DefaultConfigurationProvider.KeyUseBuiltInHttpURLConnectionRedirectionSupport)) {
+			this._useBuiltInHttpURLConnectionRedirectionSupport = this._configurationProvider.getBoolean(DefaultConfigurationProvider.KeyUseBuiltInHttpURLConnectionRedirectionSupport);
+		} else {
+			this._useBuiltInHttpURLConnectionRedirectionSupport = false;
+		}
+
+		this._requestWorkExecutorService = Executors.newFixedThreadPool(this._maxSimultaneousRequests);
+
 		this.startWorking(name);
 	}
 	//------------------------------
 
-	// TODO: Get configuration values from a config system
-	private final int _redirectLimit = 3;
-	private final int _maxSimultaneousRequests = 1;
-	private final int _connectTimeoutMilliseconds = 30000;
-	private final int _readTimeoutMilliseconds = 30000;
-	
+	private final int _redirectLimit;
+	private final int _maxSimultaneousRequests;
+	private final int _connectTimeoutMilliseconds;
+	private final int _readTimeoutMilliseconds;
+	private final boolean _disableSSLCertChecking;
+	private final boolean _useBuiltInHttpURLConnectionRedirectionSupport;
 
-	private final ExecutorService _requestWorkExecutorService = Executors.newFixedThreadPool(_maxSimultaneousRequests);
+	private final ExecutorService _requestWorkExecutorService;
 	private final LinkedList<Work> _queuedWork = new LinkedList<Work>();
 	private final ArrayList<Work> _activeWork = new ArrayList<Work>();
 	private final ArrayList<Work> _retryWork= new ArrayList<Work>();
@@ -101,10 +147,12 @@ public final class CommManager {
 	private Object _workThreadLock = new Object();
 	private volatile boolean _workThreadStopping = false;
 	private Object _workManagmentLock = new Object();
+	private Object _sslCertConfigLock = new Object();
 
 	private final CacheProvider _cacheProvider;
 	private final PriorityManagmentProvider _priorityManagmentProvider;
 	private final RetryPolicyProvider _retryPolicyProvider; 
+	private final ConfigurationProvider _configurationProvider;
 
 	/**
 	 * Enters a request into the communications framework for processing. The {@link Work} instance returned can be used
@@ -166,7 +214,7 @@ public final class CommManager {
 					if(cacheEntry != null) {
 						newWork.setCachedResponse(cacheEntry);
 
-						// TODO: Allowing the use of stale cache entries should come from config, maybe allowing request instance to override
+						// TODO: CONFIG: Allowing the use of stale cache entries should come from config, maybe allowing request instance to override
 						if(!cacheEntry.hasExpired()) {
 							cachedResponse = getResponseFromCacheEntry(cacheEntry);
 						}
@@ -338,6 +386,34 @@ public final class CommManager {
 		return(retryInterval);
 	}
 
+	private void disableSSLCertChecking() {
+
+		// Set a trust manager that is no-op and trusts everything
+		try {
+		    SSLContext sslContext = SSLContext.getInstance("SSL");
+		    sslContext.init(null, _TrustAllCertsManagers, new java.security.SecureRandom());
+		    HttpsURLConnection.setDefaultSSLSocketFactory(sslContext.getSocketFactory());
+		} catch (NoSuchAlgorithmException e) {
+		} catch (KeyManagementException e) {
+		}
+	}
+
+	private void enableSSLCertChecking() {
+
+		// Restore the default trust manager
+		HttpsURLConnection.setDefaultSSLSocketFactory(_DefaultSSLSocketFactory);
+	}
+
+	// Some fields to help with enabling and disabling SSL cert checking
+	private static final SSLSocketFactory _DefaultSSLSocketFactory = HttpsURLConnection.getDefaultSSLSocketFactory();
+	private static final TrustManager[] _TrustAllCertsManagers = new TrustManager[]{
+	    new X509TrustManager() {
+	        public java.security.cert.X509Certificate[] getAcceptedIssuers() { return null; }
+	        public void checkClientTrusted(java.security.cert.X509Certificate[] certs, String authType) { }
+	        public void checkServerTrusted(java.security.cert.X509Certificate[] certs, String authType) { }
+	    }
+	};
+
 	//------------------------------------------------------------
 	// Private helper classes
 
@@ -494,14 +570,24 @@ public final class CommManager {
 
 				// Create our connection
 				URL url = this._work.getRequest().getUri().toURL();
-				urlConnection = (HttpURLConnection) url.openConnection();
 
-				// We will be manually rolling redirection support for consistent behavior across Java 
-				// versions and for the ability to make redirection behavior full configurable, etc.
-				// TODO: Make the use of built-in HttpURLConnection redirection support a configurable option
-				urlConnection.setInstanceFollowRedirects(false);
+				// Support use of end-points with bad SSL certs via configuration to allow or disallow
+				if(CommManager.this._disableSSLCertChecking) {
+
+					// We need to control this setting and the creation of the HttpURLConnection instance in a critical section given how 
+					// Java manages this configuration as a static (see the disableSSLCertChecking() and enableSSLCertChecking() methods).
+					// Normally cert checking should NOT be disabled, so this critical section should only get hit for dev and testing, etc.
+					synchronized(_sslCertConfigLock) {
+						CommManager.this.disableSSLCertChecking();
+						urlConnection = (HttpURLConnection) url.openConnection();
+						CommManager.this.enableSSLCertChecking();
+					}
+				} else {
+					urlConnection = (HttpURLConnection) url.openConnection();
+				}
 
 				// Configure our connection
+				urlConnection.setInstanceFollowRedirects(CommManager.this._useBuiltInHttpURLConnectionRedirectionSupport);
 				urlConnection.setConnectTimeout(CommManager.this._connectTimeoutMilliseconds);
 				urlConnection.setReadTimeout(CommManager.this._readTimeoutMilliseconds);
 				urlConnection.setDoInput(true);
@@ -509,7 +595,7 @@ public final class CommManager {
 				_Logger.debug("{} Making an HTTP {} request", this._logPrefix, this._work.getRequest().getMethod().name());
 
 				// Add any common request headers. Headers set here will be overridden below if there are duplicates.
-				//urlConnection.setRequestProperty("Accept-Encoding", "gzip");
+				urlConnection.setRequestProperty("Accept-Encoding", "gzip");
 				urlConnection.setRequestProperty("Cache-Control", "no-transform");
 
 				// Add request headers if we have any, overriding common headers set above if there are duplicates.
@@ -530,6 +616,8 @@ public final class CommManager {
 					(this._work.getRequest().getPostData() != null) && 
 					(this._work.getRequest().getPostData().length > 0) )
 				{
+
+					// TODO: CONFIG: Support GZIPing requests based on configuration, size thresholds, etc.
 					urlConnection.setDoOutput(true);
 					OutputStream outStream = null;
 					try {
@@ -555,7 +643,18 @@ public final class CommManager {
 					if(urlConnection.getContentLengthLong() > 0) {
 						int readCount;
 						byte[] data = new byte[512];
+
+						// Support GZIPed responses
 						in = urlConnection.getInputStream();
+						String contentEncoding = Response.getContentEncoding(urlConnection.getHeaderFields());
+						if ((contentEncoding != null) && (contentEncoding.length() > 0) && (contentEncoding.equalsIgnoreCase("gzip"))) {
+						    in = new GZIPInputStream(in);
+							_Logger.debug("{} Received gzipped data", this._logPrefix);
+						}
+						else{
+							_Logger.debug("{} Received non-gzipped data", this._logPrefix);
+						}
+
 						while((readCount = in.read(data, 0, data.length)) != -1) {
 						  buffer.write(data, 0, readCount);
 						}
@@ -802,6 +901,7 @@ public final class CommManager {
 		private CacheProvider _cacheProvider = null;
 		private PriorityManagmentProvider _priorityManagmentProvider = null;
 		private RetryPolicyProvider _retryPolicyProvider = null;
+		private ConfigurationProvider _configurationProvider = null;
 
 		public Builder() {
 
@@ -810,6 +910,7 @@ public final class CommManager {
 
 			this._priorityManagmentProvider = new DefaultPriorityManagmentProvider();
 			this._retryPolicyProvider = new DefaultRetryPolicyProvider();
+			this._configurationProvider = new DefaultConfigurationProvider();
 		}
 
 		/**
@@ -855,13 +956,27 @@ public final class CommManager {
 		}
 
 		/**
+		 * Sets the {@link ConfigurationProvider} instance used by the comm framework for getting configuration data.
+		 * The default is <b>null</b> (resulting in default values being used everywhere). The configuration provider set here will be used by the 
+		 * {@link CommManager} instances subsequently created via {@link Builder#create()}.
+		 */
+		public Builder setConfigurationProvider(ConfigurationProvider configurationProvider) {
+			if(configurationProvider == null) {
+				this._configurationProvider = new DefaultConfigurationProvider();
+			} else {
+				this._configurationProvider = configurationProvider;
+			}
+			return(this);
+		}
+
+		/**
 		 * Creates a new {@link CommManager} instance based on the values currently configured on this {@link Builder} instance.
 		 * @return A {@link CommManager} instance.
 		 */
 		public CommManager create() {
 
 			// Create a CommManager instance
-			return(new CommManager(this._name, this._cacheProvider, this._priorityManagmentProvider, this._retryPolicyProvider));
+			return(new CommManager(this._name, this._cacheProvider, this._priorityManagmentProvider, this._retryPolicyProvider, this._configurationProvider));
 		}
 
 	}

@@ -105,6 +105,17 @@ public class Response implements Serializable {
 	//*********************************************************************************************
 	// Header parsing helpers
 
+	/** Returns the value for the 'Content-Encoding' header from the given header collection, or NULL if no value can be resolved. */
+	public static String getContentEncoding(Map<String, List<String>> headers) {
+		String contentEncoding = null;
+		try {
+			contentEncoding = headers.get("Content-Encoding").get(0);
+		} catch(Exception e) {
+			_Logger.error("Failed to parse value from 'Content-Encoding' header", e);  // No-op OK
+		}
+		return(contentEncoding);
+	}
+
 	/**
 	 * If we are able to resolve a Location value form the headers of this {@link Response} instance and parse that value to a {@link URI}
 	 * then the Location value is returned, otherwise NULL is returned. This method resolves any relative redirects to absolute redirects.
