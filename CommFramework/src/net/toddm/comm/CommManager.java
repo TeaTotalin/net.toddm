@@ -29,8 +29,6 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
-import java.security.KeyManagementException;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -45,7 +43,6 @@ import java.util.zip.GZIPInputStream;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
@@ -147,7 +144,6 @@ public final class CommManager {
 	private Object _workThreadLock = new Object();
 	private volatile boolean _workThreadStopping = false;
 	private Object _workManagmentLock = new Object();
-	private Object _sslCertConfigLock = new Object();
 
 	private final CacheProvider _cacheProvider;
 	private final PriorityManagmentProvider _priorityManagmentProvider;
@@ -386,26 +382,13 @@ public final class CommManager {
 		return(retryInterval);
 	}
 
-	private void disableSSLCertChecking() {
+	//------------------------------------------------------------
+	// Private helper classes
 
-		// Set a trust manager that is no-op and trusts everything
-		try {
-		    SSLContext sslContext = SSLContext.getInstance("SSL");
-		    sslContext.init(null, _TrustAllCertsManagers, new java.security.SecureRandom());
-		    HttpsURLConnection.setDefaultSSLSocketFactory(sslContext.getSocketFactory());
-		} catch (NoSuchAlgorithmException e) {
-		} catch (KeyManagementException e) {
-		}
-	}
-
-	private void enableSSLCertChecking() {
-
-		// Restore the default trust manager
-		HttpsURLConnection.setDefaultSSLSocketFactory(_DefaultSSLSocketFactory);
-	}
-
-	// Some fields to help with enabling and disabling SSL cert checking
-	private static final SSLSocketFactory _DefaultSSLSocketFactory = HttpsURLConnection.getDefaultSSLSocketFactory();
+	/**
+	 * A trust manager that trust everything. This is for use when enabling HTTPS end-points 
+	 * that have bad certificates. This should generally only be used for development and testing.
+	 */
 	private static final TrustManager[] _TrustAllCertsManagers = new TrustManager[]{
 	    new X509TrustManager() {
 	        public java.security.cert.X509Certificate[] getAcceptedIssuers() { return null; }
@@ -413,9 +396,6 @@ public final class CommManager {
 	        public void checkServerTrusted(java.security.cert.X509Certificate[] certs, String authType) { }
 	    }
 	};
-
-	//------------------------------------------------------------
-	// Private helper classes
 
 	/**
 	 * An implementation of {@link Runnable} that provides the work needed to manage various aspects of the
@@ -570,24 +550,10 @@ public final class CommManager {
 
 				// Create our connection
 				URL url = this._work.getRequest().getUri().toURL();
+				urlConnection = (HttpURLConnection) url.openConnection();
 
 				// Support use of end-points with bad SSL certs via configuration to allow or disallow
-//				if(CommManager.this._disableSSLCertChecking) {
-//
-//					// We need to control this setting and the creation of the HttpURLConnection instance in a critical section given how 
-//					// Java manages this configuration as a static (see the disableSSLCertChecking() and enableSSLCertChecking() methods).
-//					// Normally cert checking should NOT be disabled, so this critical section should only get hit for dev and testing, etc.
-//					synchronized(_sslCertConfigLock) {
-//						CommManager.this.disableSSLCertChecking();
-//						urlConnection = (HttpURLConnection) url.openConnection();
-//						CommManager.this.enableSSLCertChecking();
-//					}
-//				} else {
-					urlConnection = (HttpURLConnection) url.openConnection();
-//				}
-
 				if((urlConnection instanceof HttpsURLConnection) && (CommManager.this._disableSSLCertChecking)) {
-					// Set a trust manager that is no-op and trusts everything
 					try {
 					    SSLContext sslContext = SSLContext.getInstance("SSL");
 					    sslContext.init(null, _TrustAllCertsManagers, new java.security.SecureRandom());
