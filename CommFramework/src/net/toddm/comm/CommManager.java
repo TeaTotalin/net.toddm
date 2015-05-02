@@ -572,18 +572,29 @@ public final class CommManager {
 				URL url = this._work.getRequest().getUri().toURL();
 
 				// Support use of end-points with bad SSL certs via configuration to allow or disallow
-				if(CommManager.this._disableSSLCertChecking) {
-
-					// We need to control this setting and the creation of the HttpURLConnection instance in a critical section given how 
-					// Java manages this configuration as a static (see the disableSSLCertChecking() and enableSSLCertChecking() methods).
-					// Normally cert checking should NOT be disabled, so this critical section should only get hit for dev and testing, etc.
-					synchronized(_sslCertConfigLock) {
-						CommManager.this.disableSSLCertChecking();
-						urlConnection = (HttpURLConnection) url.openConnection();
-						CommManager.this.enableSSLCertChecking();
-					}
-				} else {
+//				if(CommManager.this._disableSSLCertChecking) {
+//
+//					// We need to control this setting and the creation of the HttpURLConnection instance in a critical section given how 
+//					// Java manages this configuration as a static (see the disableSSLCertChecking() and enableSSLCertChecking() methods).
+//					// Normally cert checking should NOT be disabled, so this critical section should only get hit for dev and testing, etc.
+//					synchronized(_sslCertConfigLock) {
+//						CommManager.this.disableSSLCertChecking();
+//						urlConnection = (HttpURLConnection) url.openConnection();
+//						CommManager.this.enableSSLCertChecking();
+//					}
+//				} else {
 					urlConnection = (HttpURLConnection) url.openConnection();
+//				}
+
+				if((urlConnection instanceof HttpsURLConnection) && (CommManager.this._disableSSLCertChecking)) {
+					// Set a trust manager that is no-op and trusts everything
+					try {
+					    SSLContext sslContext = SSLContext.getInstance("SSL");
+					    sslContext.init(null, _TrustAllCertsManagers, new java.security.SecureRandom());
+						((HttpsURLConnection)urlConnection).setSSLSocketFactory(sslContext.getSocketFactory());
+					} catch (Exception e) {
+						_Logger.error(String.format(Locale.US, "%1$s Disabling SSL cert checking failed", this._logPrefix), e);
+					}
 				}
 
 				// Configure our connection
