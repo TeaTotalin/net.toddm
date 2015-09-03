@@ -20,7 +20,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Map;
-import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
@@ -62,9 +62,9 @@ public class Work implements Future<Response> {
 		COMPLETED
 	}
 
-	private final Request _request;
-	private final Priority _priority;
-	private final ConcurrentLinkedDeque<FutureTask<Response>> _futureTasks = new ConcurrentLinkedDeque<FutureTask<Response>>();
+    private final Request _request;
+    private final Priority _priority;
+    private final ConcurrentLinkedQueue<FutureTask<Response>> _futureTasks = new ConcurrentLinkedQueue<FutureTask<Response>>();
 
 	private Status _state = Status.CREATED;
 	private Response _response = null;
@@ -121,8 +121,16 @@ public class Work implements Future<Response> {
 	/** Sets a cached response for this {@link Work} instance. NULL is a valid value. */
 	protected void setCachedResponse(CacheEntry cachedResponse) { this._cachedResponse = cachedResponse; }
 
-	/** Returns the most recent {@link FutureTask} instance that defines work to do for this {@link Work} instance, or NULL if there isn't one. */
-	protected FutureTask<Response> getFutureTask() { return(this._futureTasks.peek()); }
+    /**
+     * Returns the most recent {@link FutureTask} instance that defines work to do for this {@link Work} instance, or NULL if there isn't one.
+     */
+    protected FutureTask<Response> getFutureTask() {
+        FutureTask<Response> lastFuture = null;
+        for (FutureTask<Response> future : this._futureTasks) {
+            lastFuture = future;
+        }
+        return (lastFuture);
+    }
 
 	/**
 	 * Adds the given {@link FutureTask} to this {@link Work} instance as the most recent work.
@@ -130,7 +138,7 @@ public class Work implements Future<Response> {
 	 */
 	protected void addFutureTask(FutureTask<Response> futureTask) {
 		if(futureTask == null) { throw(new IllegalArgumentException("'futureTask' can not be NULL")); }
-		this._futureTasks.addFirst(futureTask);
+		this._futureTasks.add(futureTask);
 	}
 	
 	/** Returns the "retry-after" timestamp (as an epoch time in milliseconds) for this {@link Work} */
@@ -234,7 +242,7 @@ public class Work implements Future<Response> {
 		if(responses.size() <= 0) {
 			return(null);
 		} else {
-			return(responses.get(0));
+			return(responses.get(responses.size() -1));
 		}
 	}
 
@@ -260,9 +268,10 @@ public class Work implements Future<Response> {
 			if(lhs == null) { throw(new IllegalArgumentException("'lhs' can not be NULL")); }
 			if(rhs == null) { throw(new IllegalArgumentException("'rhs' can not be NULL")); }
 
-			// Calculate order based on when the Response instances where created
-			return(Long.compare(rhs.getInstanceCreationTime(), lhs.getInstanceCreationTime()));
-		}
-	};
+            // Calculate order based on when the Response instances where created
+            // 0 if lhs = rhs, less than 0 if lhs < rhs, and greater than 0 if lhs > rhs
+            return (int)(lhs.getInstanceCreationTime() - rhs.getInstanceCreationTime());
+        }
+    };
 
 }

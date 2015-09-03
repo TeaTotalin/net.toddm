@@ -109,7 +109,9 @@ public class Response implements Serializable {
 	public static String getContentEncoding(Map<String, List<String>> headers) {
 		String contentEncoding = null;
 		try {
-			contentEncoding = headers.get("Content-Encoding").get(0);
+            if(headers.containsKey("Content-Encoding")) {
+				contentEncoding = headers.get("Content-Encoding").get(0);
+			}
 		} catch(Exception e) {
 			_Logger.error("Failed to parse value from 'Content-Encoding' header", e);  // No-op OK
 		}
