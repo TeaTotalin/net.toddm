@@ -58,7 +58,7 @@ public class MainActivity extends ActionBarActivity {
       CommManager.Builder commManagerBuilder = new CommManager.Builder();
       this._commManager = commManagerBuilder
           .setName("SampleAppMainCommManager")
-          .setCacheProvider(DBCacheProvider.getInstance(this, "comm_results_cache", 1))
+          .setCacheProvider(DBCacheProvider.getInstance(this, "comm_results_cache", 1, 100))
           .create();
 
       // Wire up the test button

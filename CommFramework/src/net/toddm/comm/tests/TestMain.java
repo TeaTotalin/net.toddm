@@ -128,7 +128,7 @@ public class TestMain extends TestCase {
 	// TODO: Find a better way to test 304, this currently requires manually examining the log after running
 	public void test304Responses() throws Exception {
 
-		MemoryCacheProvider cache = new MemoryCacheProvider("testCache");
+		MemoryCacheProvider cache = new MemoryCacheProvider("testCache", 20);
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder
 				.setName("TEST")
@@ -161,7 +161,7 @@ public class TestMain extends TestCase {
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder
 				.setName("TEST")
-				.setCacheProvider(new MemoryCacheProvider("testCache"))
+				.setCacheProvider(new MemoryCacheProvider("testCache", 20))
 				.create();
 
 		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, true);

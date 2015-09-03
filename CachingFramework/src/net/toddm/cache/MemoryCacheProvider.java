@@ -42,23 +42,23 @@ public class MemoryCacheProvider implements CacheProvider {
 	private final CacheEntryAgeComparator _cacheEntryAgeComparator = new CacheEntryAgeComparator();
 	private final ConcurrentHashMap<String, CacheEntry> _keyToEntry = new ConcurrentHashMap<String, CacheEntry>();
 
-	/**
-	 * This should have a sane default value, though the default here is really a guess without any knowledge of what is 
-	 * being cached (seize of each cache entry). We will default to a "smaller" number for in-memory caching.
-	 */
-	private int _lruCap = 20;
+    private int _lruCap;
 
 	private String getLookupKey(String key) {
 		return(String.format(Locale.US, "%1$s:%2$s", this._namespace, key));
 	}
 
-	/**
-	 * Create an instance of {@link MemoryCacheProvider} with the given namespace.
-	 * @param namespace <b>OPTIONAL</b> If NULL then the cache instance is created in the default namespace.
-	 */
-	public MemoryCacheProvider(String namespace) {
-		this._namespace = (((namespace == null) || (namespace.length() <= 0)) ? _DefaultNamespace : namespace);
-	}
+    /**
+     * Create an instance of {@link MemoryCacheProvider} with the given namespace.
+     *
+     * @param namespace <b>OPTIONAL</b> If NULL then the cache instance is created in the default namespace.
+     * @param initialLruCap The maximum number of entries the cache should contain after a call to {@link #trimLru()}.
+     */
+    public MemoryCacheProvider(String namespace, int initialLruCap) {
+        if (initialLruCap < 0) { throw (new IllegalArgumentException("'initialLruCap' can not be negative")); }
+        this._namespace = (((namespace == null) || (namespace.length() <= 0)) ? _DefaultNamespace : namespace);
+        this._lruCap = initialLruCap;
+    }
 
 	/** {@inheritDoc} */
 	@Override

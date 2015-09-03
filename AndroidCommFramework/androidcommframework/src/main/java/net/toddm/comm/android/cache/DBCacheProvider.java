@@ -50,28 +50,43 @@ public class DBCacheProvider extends SQLiteOpenHelper implements CacheProvider {
 
   //-------------------------------------------------------------------------------
   // Enforce one instance per namespace/database
-  private DBCacheProvider(Context context, String databaseName, int databaseVersion) {
-    super(context, databaseName, null, databaseVersion);
-    this._databaseName = databaseName;
-    this._databaseVersion = databaseVersion;
+    private DBCacheProvider(Context context, String databaseName, int databaseVersion, int initialLruCap) {
+        super(context, databaseName, null, databaseVersion);
+        this._databaseName = databaseName;
+        this._databaseVersion = databaseVersion;
+        this._lruCap = initialLruCap;
     _Logger.trace("Using caching database '{}'", databaseName);
   }
 
-  public static DBCacheProvider getInstance(Context context, String namespace, int databaseVersion) {
-    if(context == null) { throw(new IllegalArgumentException("'context' can not be NULL")); }
-    if((namespace == null) || (namespace.length() <= 0)) { throw(new IllegalArgumentException("'namespace' can not be NULL or empty")); }
-    if(!_NamespaceToCache.containsKey(namespace)) {
-      synchronized(_NamespaceToCacheLock) {
-        if(!_NamespaceToCache.containsKey(namespace)) {
-          _NamespaceToCache.put(namespace, new DBCacheProvider(context, namespace, databaseVersion));
+    /**
+     * Returns an instance of {@link DBCacheProvider} for the given namespace. The instance will be
+     * created if needed or returned if an instance has previously been created for the given namespace.
+     *
+     * @param context An Android {@link Context} for use when interacting with SQLite.
+     * @param namespace The namespace of the cache that is returned.
+     * @param databaseVersion The version of the database (starting at 1). If the database already exists and the version
+     *                        do not match then calls to {@link #onUpgrade} on {@link #onDowngrade} will be triggered.
+     * @param initialLruCap The maximum number of entries the cache should contain after a call to {@link #trimLru()}.
+     * @return
+     */
+    public static DBCacheProvider getInstance(Context context, String namespace, int databaseVersion, int initialLruCap) {
+        if (context == null) { throw (new IllegalArgumentException("'context' can not be NULL")); }
+        if ((namespace == null) || (namespace.length() <= 0)) { throw (new IllegalArgumentException("'namespace' can not be NULL or empty")); }
+        if (initialLruCap < 0) { throw (new IllegalArgumentException("'initialLruCap' can not be negative")); }
+        if (!_NamespaceToCache.containsKey(namespace)) {
+            synchronized (_NamespaceToCacheLock) {
+                if (!_NamespaceToCache.containsKey(namespace)) {
+                    _NamespaceToCache.put(namespace, new DBCacheProvider(context, namespace, databaseVersion, initialLruCap));
+                }
+            }
         }
-      }
+        return (_NamespaceToCache.get(namespace));
     }
-    return(_NamespaceToCache.get(namespace));
-  }
 
-  private static volatile Object _NamespaceToCacheLock = new Object();
-  private static Map<String, DBCacheProvider> _NamespaceToCache = new HashMap<String, DBCacheProvider>();
+    private static volatile Object _NamespaceToCacheLock = new Object();
+    private static Map<String, DBCacheProvider> _NamespaceToCache = new HashMap<String, DBCacheProvider>();
+
+    private int _lruCap;
 
   private final String _databaseName;
   private final int _databaseVersion;
@@ -365,19 +380,24 @@ public class DBCacheProvider extends SQLiteOpenHelper implements CacheProvider {
     return(true);
   }
 
-  /** {@inheritDoc} */
-  @Override
-  public boolean trimLru(int maxEntries) {
-    if(maxEntries < 0) { throw(new IllegalArgumentException("'maxEntries' can not be negative")); }
-    synchronized(this._databaseAccessLock) {
-      if(this.sizeInternal(true) > maxEntries) {
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean trimLru() {
+        int lruCap = this.getLruCap();
+        if (lruCap < 0) {
+            throw (new IllegalStateException("LRU cap can not be negative"));
+        }
+        synchronized (this._databaseAccessLock) {
+            if (this.sizeInternal(true) > lruCap) {
 
         // Get the database row ID for where LRU records start
         Long id = null;
         Cursor results = null;
         try {
           results = this.getReadableDatabase().query(_DatabaseTableName, _IDColumn, null, null, null, null, "timestampModified DESC");
-          if(results.moveToPosition(maxEntries)) { id = results.getLong(0); } // ID is at index zero
+          if(results.moveToPosition(lruCap)) { id = results.getLong(0); } // ID is at index zero
         } finally {
           try { if(results != null) { results.close(); results = null; } } catch(Exception e) {} // No-op OK
         }
@@ -394,5 +414,24 @@ public class DBCacheProvider extends SQLiteOpenHelper implements CacheProvider {
     }
     return(true);
   }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setLruCap(int maxCacheSize) {
+        if (maxCacheSize < 0) {
+            throw (new IllegalArgumentException("'maxCacheSize' can not be negative"));
+        }
+        this._lruCap = maxCacheSize;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int getLruCap() {
+        return (this._lruCap);
+    }
 
 }
