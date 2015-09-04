@@ -25,23 +25,19 @@ import junit.framework.Assert;
 import junit.framework.TestCase;
 import net.toddm.cache.CacheEntry;
 import net.toddm.cache.MemoryCacheProvider;
+import net.toddm.cache.DefaultLogger;
 import net.toddm.comm.CommManager;
 import net.toddm.comm.Priority.StartingPriority;
 import net.toddm.comm.Request.RequestMethod;
 import net.toddm.comm.Response;
 import net.toddm.comm.Work;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 public class TestMain extends TestCase {
-
-	private static Logger _Logger = LoggerFactory.getLogger(TestMain.class.getSimpleName());
 
 	public void testRequest() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
-		CommManager commManager = commManagerBuilder.setName("TEST").create();
+		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
 
 		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
         assertNotNull(work);
@@ -50,7 +46,7 @@ public class TestMain extends TestCase {
         assertNotNull(response);
         assertEquals(200, (int)response.getResponseCode());
 		String results = response.getResponseBody();
-        _Logger.trace(results);
+		System.out.println(results);
 		assertNotNull(results);
 		assertTrue(results.length() > 0);
 	}
@@ -58,7 +54,7 @@ public class TestMain extends TestCase {
 	public void testRequestRedirectAbsolute() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
-		CommManager commManager = commManagerBuilder.setName("TEST").create();
+		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
 		Work work = commManager.enqueueWork(new URI("http://httpbin.org/redirect-to?url=http%3A%2F%2Fwww.toddm.net%2F"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
 		assertNotNull(work);
 
@@ -71,7 +67,7 @@ public class TestMain extends TestCase {
 	public void testRequestRedirectRelative() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
-		CommManager commManager = commManagerBuilder.setName("TEST").create();
+		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
 		Work work = commManager.enqueueWork(new URI("http://httpbin.org/relative-redirect/3"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
 		assertNotNull(work);
 
@@ -84,7 +80,7 @@ public class TestMain extends TestCase {
 	public void testRequestWithHeaders() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
-		CommManager commManager = commManagerBuilder.setName("TEST").create();
+		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
 		
 		Map<String, String> headers = new HashMap<String, String>();
 		headers.put("Content-Language", "en-US");
@@ -97,7 +93,7 @@ public class TestMain extends TestCase {
         assertNotNull(response);
         assertEquals(200, (int)response.getResponseCode());
 		String results = response.getResponseBody();
-        _Logger.trace(results);
+		System.out.println(results);
 		assertNotNull(results);
 		assertTrue(results.length() > 0);
 	}
@@ -105,7 +101,7 @@ public class TestMain extends TestCase {
 	public void testRequestCachingHeaders() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
-		CommManager commManager = commManagerBuilder.setName("TEST").create();
+		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
 
 		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
         assertNotNull(work);
@@ -118,21 +114,22 @@ public class TestMain extends TestCase {
         Long ttl = response.getTtlFromHeaders();
         assertNotNull(ttl);
         assertEquals(3600000, ttl.longValue());
-        _Logger.trace("TTL from response headers: " + ttl);
+        System.out.println("TTL from response headers: " + ttl);
 
         String eTag = response.getETagFromHeaders();
         assertNotNull(eTag);
-        _Logger.trace("ETag from response headers: " + eTag);
+        System.out.println("ETag from response headers: " + eTag);
 	}
 
 	// TODO: Find a better way to test 304, this currently requires manually examining the log after running
 	public void test304Responses() throws Exception {
 
-		MemoryCacheProvider cache = new MemoryCacheProvider("testCache", 20);
+		MemoryCacheProvider cache = new MemoryCacheProvider("testCache", 20, new DefaultLogger());
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder
 				.setName("TEST")
 				.setCacheProvider(cache)
+				.setLoggingProvider(new DefaultLogger())
 				.create();
 
 		Work work = commManager.enqueueWork(new URI("http://httpbin.org/cache"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, true);
@@ -161,7 +158,8 @@ public class TestMain extends TestCase {
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder
 				.setName("TEST")
-				.setCacheProvider(new MemoryCacheProvider("testCache", 20))
+				.setCacheProvider(new MemoryCacheProvider("testCache", 20, new DefaultLogger()))
+				.setLoggingProvider(new DefaultLogger())
 				.create();
 
 		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, true);
@@ -171,7 +169,7 @@ public class TestMain extends TestCase {
         assertNotNull(response);
         assertEquals(200, (int)response.getResponseCode());
 		String results = response.getResponseBody();
-        _Logger.trace(results);
+		System.out.println(results);
 		assertNotNull(results);
 		assertTrue(results.length() > 0);
 		
@@ -182,7 +180,7 @@ public class TestMain extends TestCase {
         assertNotNull(response2);
         assertEquals(200, (int)response2.getResponseCode());
 		String results2 = response2.getResponseBody();
-        _Logger.trace(results2);
+		System.out.println(results2);
 		assertNotNull(results2);
 		assertTrue(results2.length() > 0);
 
@@ -194,7 +192,7 @@ public class TestMain extends TestCase {
 		List<Work> testRequests = new ArrayList<Work>();
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
-		CommManager commManager = commManagerBuilder.setName("TEST").create();
+		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
 
 		Work work1 = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
         assertNotNull(work1);

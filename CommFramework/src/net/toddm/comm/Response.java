@@ -27,16 +27,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import net.toddm.cache.LoggingProvider;
 
 /**
  * @author Todd S. Murchison
  */
 public class Response implements Serializable {
 	private static final long serialVersionUID = -6722104702458701972L;
-
-	private static final Logger _Logger = LoggerFactory.getLogger(Response.class.getSimpleName());
 
 	/** {@serial} */
 	private byte[] _responseBytes;
@@ -50,8 +47,9 @@ public class Response implements Serializable {
 	private Map<String, List<String>> _headers;
 
 	private long _instanceCreationTime = System.currentTimeMillis();
+	private final LoggingProvider _logger;
 
-	protected Response(byte[] responseBytes, Map<String, List<String>> headers, int responseCode, int requestId, int responseTime) {
+	protected Response(byte[] responseBytes, Map<String, List<String>> headers, int responseCode, int requestId, int responseTime, LoggingProvider loggingProvider) {
 		this._responseBytes = responseBytes;
 		if(headers != null) {
 
@@ -63,6 +61,7 @@ public class Response implements Serializable {
 		this._responseCode = responseCode;
 		this._requestId = requestId;
 		this._responseTime = responseTime;
+		this._logger = loggingProvider;
 	}
 	
 	public byte[] getResponseBytes() {
@@ -74,7 +73,7 @@ public class Response implements Serializable {
 		try {
 			result = new String(this._responseBytes, "UTF-8");
 		} catch(UnsupportedEncodingException uee) {
-			_Logger.debug("Response encoding as string failed");  // No-op OK
+			if(this._logger != null) { this._logger.debug("Response encoding as string failed"); }  // No-op OK
 		}
 		return(result);
 	}
@@ -108,12 +107,8 @@ public class Response implements Serializable {
 	/** Returns the value for the 'Content-Encoding' header from the given header collection, or NULL if no value can be resolved. */
 	public static String getContentEncoding(Map<String, List<String>> headers) {
 		String contentEncoding = null;
-		try {
-            if(headers.containsKey("Content-Encoding")) {
-				contentEncoding = headers.get("Content-Encoding").get(0);
-			}
-		} catch(Exception e) {
-			_Logger.error("Failed to parse value from 'Content-Encoding' header", e);  // No-op OK
+        if(headers.containsKey("Content-Encoding")) {
+        	contentEncoding = headers.get("Content-Encoding").get(0);
 		}
 		return(contentEncoding);
 	}
@@ -148,7 +143,7 @@ public class Response implements Serializable {
 			}
 
 		} catch(Exception e) {
-			_Logger.error("Failed to parse value from 'Location' header", e);  // No-op OK
+			if(this._logger != null) { this._logger.error(e, "Failed to parse value from 'Location' header"); }  // No-op OK
 		}
 		return(location);
 	}
@@ -180,7 +175,7 @@ public class Response implements Serializable {
 					retryInSeconds = ((httpDate.getTime() - System.currentTimeMillis()) / 1000);
 
 				} catch(Exception f) {
-					_Logger.error("Failed to parse value from 'Retry-After' header", f);  // No-op OK
+					if(this._logger != null) { this._logger.error(f, "Failed to parse value from 'Retry-After' header"); }  // No-op OK
 				}
 			}
 		}
@@ -221,7 +216,7 @@ public class Response implements Serializable {
 							long ttlInSeconds = Long.parseLong(directivePair[1].trim());
 							if(ttlInSeconds >= 0) { ttl = ttlInSeconds * 1000; }
 						} catch(NumberFormatException e) {
-							_Logger.error("getTtlFromResponse() failed", e);
+							if(this._logger != null) { this._logger.error(e, "getTtlFromResponse() failed"); }
 						}
 					}
 				}

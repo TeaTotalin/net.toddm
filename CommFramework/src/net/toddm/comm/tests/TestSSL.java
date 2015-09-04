@@ -18,6 +18,7 @@ package net.toddm.comm.tests;
 import java.net.URI;
 import java.util.HashMap;
 
+import net.toddm.cache.DefaultLogger;
 import net.toddm.comm.CommManager;
 import net.toddm.comm.DefaultConfigurationProvider;
 import net.toddm.comm.MapConfigurationProvider;
@@ -32,7 +33,7 @@ public class TestSSL extends TestCase {
 	public void testGoodCert() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
-		CommManager commManager = commManagerBuilder.setName("TEST").create();
+		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
 		Work work = commManager.enqueueWork(new URI("https://httpbin.org/status/200"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
         assertNotNull(work);
 
@@ -53,6 +54,7 @@ public class TestSSL extends TestCase {
 						}
 					}))
 				.setName("TEST")
+				.setLoggingProvider(new DefaultLogger())
 				.create();
 
 		Work work = commManagerNoCerts.enqueueWork(new URI("https://testssl-expire.disig.sk/index.en.html"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
@@ -69,6 +71,7 @@ public class TestSSL extends TestCase {
 							put(DefaultConfigurationProvider.KeyDisableSSLCertChecking, false);
 						}
 					}))
+				.setLoggingProvider(new DefaultLogger())
 				.create();
 
 		work = commManagerWithCerts.enqueueWork(new URI("https://testssl-expire.disig.sk/index.en.html"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);

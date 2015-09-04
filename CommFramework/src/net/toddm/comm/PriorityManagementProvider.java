@@ -22,7 +22,7 @@ import java.util.Comparator;
  * <p>
  * @author Todd S. Murchison
  */
-public interface PriorityManagmentProvider {
+public interface PriorityManagementProvider {
 
 	/**
 	 * Decides if the given instance of {@link Priority} should be adjusted and makes the adjustment if it should.<br>

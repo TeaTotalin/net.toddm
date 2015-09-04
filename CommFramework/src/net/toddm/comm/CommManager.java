@@ -48,12 +48,10 @@ import javax.net.ssl.X509TrustManager;
 
 import net.toddm.cache.CacheEntry;
 import net.toddm.cache.CacheProvider;
+import net.toddm.cache.LoggingProvider;
 import net.toddm.comm.Priority.StartingPriority;
 import net.toddm.comm.Request.RequestMethod;
 import net.toddm.comm.Work.Status;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * This is the main work horse of the communications framework. Instances of this class are used to submit work and provide priority queue 
@@ -69,8 +67,6 @@ public final class CommManager {
 	//
 	// TODO: Pluggable response body handling?
 
-	private static final Logger _Logger = LoggerFactory.getLogger(CommManager.class.getSimpleName());
-
 	//------------------------------
 	// For CommManager access we are going to use a Builder -> Setters -> Create pattern. Instances of CommManager 
 	// are created by first creating an instance of CommManager.Builder, calling setters on that Builder instance, 
@@ -78,14 +74,16 @@ public final class CommManager {
 	private CommManager(
 			String name, 
 			CacheProvider cacheProvider, 
-			PriorityManagmentProvider priorityManagmentProvider, 
+			PriorityManagementProvider priorityManagmentProvider, 
 			RetryPolicyProvider retryPolicyProvider, 
-			ConfigurationProvider configurationProvider) 
+			ConfigurationProvider configurationProvider, 
+			LoggingProvider loggingProvider) 
 	{
 		this._cacheProvider = cacheProvider;
 		this._priorityManagmentProvider = priorityManagmentProvider;
 		this._retryPolicyProvider = retryPolicyProvider;
 		this._configurationProvider = configurationProvider;
+		this._logger = loggingProvider;
 
 		// TODO: Consider if we want to support "config refresh" or real-time config changes. Currently we "snap-shot" some values, like here.
 		// Pull configuration values that we will use to operate
@@ -146,9 +144,10 @@ public final class CommManager {
 	private Object _workManagmentLock = new Object();
 
 	private final CacheProvider _cacheProvider;
-	private final PriorityManagmentProvider _priorityManagmentProvider;
+	private final PriorityManagementProvider _priorityManagmentProvider;
 	private final RetryPolicyProvider _retryPolicyProvider; 
 	private final ConfigurationProvider _configurationProvider;
+	private final LoggingProvider _logger;
 
 	/**
 	 * Enters a request into the communications framework for processing. The {@link Work} instance returned can be used
@@ -169,9 +168,9 @@ public final class CommManager {
 			boolean cachingAllowed) 
 	{
 		// This constructor will validate all the arguments
-		Work newWork = new Work(uri, method, postData, headers, priority, cachingAllowed);
+		Work newWork = new Work(uri, method, postData, headers, priority, cachingAllowed, this._logger);
 		Work resultWork = null;
-		_Logger.debug("[thread:{}] enqueueWork() start", Thread.currentThread().getId());
+		if(this._logger != null) { this._logger.debug("[thread:%1$d] enqueueWork() start", Thread.currentThread().getId()); }
 
 		synchronized(_workManagmentLock) {
 
@@ -197,7 +196,7 @@ public final class CommManager {
 				// TODO: Consider if we want to support updating request priority for already queued work based on clients enqueuing the same request at a different starting priority level.
 				// I think we would only want to allow increasing priority to prevent messing with starvation prevention algorithms. For now this is probably a very low priority feature.
 
-				_Logger.info("[thread:{}] enqueueWork() Returning already enqueued work [id:{}]", Thread.currentThread().getId(), existingWork.getId());
+				if(this._logger != null) { this._logger.info("[thread:%1$d] enqueueWork() Returning already enqueued work [id:%2$d]", Thread.currentThread().getId(), existingWork.getId()); }
 				resultWork = existingWork;
 			} else {
 
@@ -223,7 +222,7 @@ public final class CommManager {
 					newWork.setResponse(cachedResponse);
 					newWork.setState(Work.Status.COMPLETED);
 					newWork.addFutureTask(new CachedResponseFuture(cachedResponse));
-					_Logger.info("[thread:{}] enqueueWork() Returning cached results [id:{}]", Thread.currentThread().getId(), newWork.getId());
+					if(this._logger != null) { this._logger.info("[thread:%1$d] enqueueWork() Returning cached results [id:%2$d]", Thread.currentThread().getId(), newWork.getId()); }
 					resultWork = newWork;
 				} else {
 
@@ -232,7 +231,7 @@ public final class CommManager {
 					newWork.addFutureTask(new FutureTask<Response>(new WorkCallable(newWork)));
 					addWorkToQueue(newWork, ManagedQueue.QUEUED);
 					newWork.setState(Work.Status.WAITING);
-					_Logger.info("[thread:{}] enqueueWork() Added new work [id:{}]", Thread.currentThread().getId(), newWork.getId());
+					if(this._logger != null) { this._logger.info("[thread:%1$d] enqueueWork() Added new work [id:%2$d]", Thread.currentThread().getId(), newWork.getId()); }
 					resultWork = newWork;
 	
 					// We've added new work, so kick the worker thread
@@ -263,7 +262,7 @@ public final class CommManager {
 				cachedResponse = (Response)inObj.readObject();
 	
 			} catch (Exception e) {
-				_Logger.error("Response de-serialization from cache failed", e);
+				if(this._logger != null) { this._logger.error(e, "Response de-serialization from cache failed"); }
 			} finally {
 				if(inObj != null) { try { inObj.close(); } catch(Exception e) {} } // No-op an exception OK here
 				if(inStream != null) { try { inStream.close(); } catch(Exception e) {} } // No-op an exception OK here
@@ -304,7 +303,7 @@ public final class CommManager {
 
 	/** Starts the work thread if it is not already running. It is safe to make this call multiple times. */
 	private void startWorking(String name) {
-		_Logger.debug("[thread:{}] startWorking()", Thread.currentThread().getId());
+		if(this._logger != null) { this._logger.debug("[thread:%1$d] startWorking()", Thread.currentThread().getId()); }
 		synchronized(_workThreadLock) {
 			_workThreadStopping = false;
 			if(_workThread == null) {
@@ -312,9 +311,9 @@ public final class CommManager {
 			}
 			if(!_workThread.isAlive()) {
 				_workThread.start();
-				_Logger.debug("[thread:{}] Thread started", Thread.currentThread().getId());
+				if(this._logger != null) { this._logger.debug("[thread:%1$d] Thread started", Thread.currentThread().getId()); }
 			} else {
-				_Logger.debug("[thread:{}] Thread already running", Thread.currentThread().getId());
+				if(this._logger != null) { this._logger.debug("[thread:%1$d] Thread already running", Thread.currentThread().getId()); }
 			}
 		}
 	}
@@ -322,18 +321,18 @@ public final class CommManager {
 	/** Stops the work thread if it is running. It is safe to make this call multiple times. This is a <strong>blocking</strong> method. */
 	@SuppressWarnings("unused")
 	private void stopWorking() {
-		_Logger.debug("[thread:{}] stopWorking()", Thread.currentThread().getId());
+		if(this._logger != null) { this._logger.debug("[thread:%1$d] stopWorking()", Thread.currentThread().getId()); }
 		synchronized(_workThreadLock) {
 
 			// Can't stop if we are not running
 			if(_workThread == null) {
-				_Logger.debug("[thread:{}] Thread already stopped", Thread.currentThread().getId());
+				if(this._logger != null) { this._logger.debug("[thread:%1$d] Thread already stopped", Thread.currentThread().getId()); }
 				return;
 			}
 
 			// Tell the thread to exit and then wake it up to do exit work
 			_workThreadStopping = true;
-			_Logger.debug("[thread:{}] kicking work thread", Thread.currentThread().getId());
+			if(this._logger != null) { this._logger.debug("[thread:%1$d] kicking work thread", Thread.currentThread().getId()); }
 			synchronized(_workManagmentLock) { _workManagmentLock.notify(); }
 
 			// Attempt to guarantee that the thread ends
@@ -342,16 +341,16 @@ public final class CommManager {
 				_workThread.interrupt();
 				_workThread.join();
 			} catch(InterruptedException e) {
-				_Logger.error("[thread:{}] Thread received an interrupt", Thread.currentThread().getId());
+				if(this._logger != null) { this._logger.error("[thread:%1$d] Thread received an interrupt", Thread.currentThread().getId()); }
 			} catch(Exception e) {
-				_Logger.error(String.format(Locale.US, "[thread:%1$d] failed", Thread.currentThread().getId()), e);
+				if(this._logger != null) { this._logger.error(e, "[thread:%1$d] failed", Thread.currentThread().getId()); }
 			} finally {
 				_workThread = null;
-				_Logger.debug("[thread:{}] Thread stopped", Thread.currentThread().getId());
+				if(this._logger != null) { this._logger.debug("[thread:%1$d] Thread stopped", Thread.currentThread().getId()); }
 			}
 		}
 	}
-	
+
 	/**
 	 * This method calculates and returns the interval, in milliseconds, between now and the next work retry time.
 	 * <p>
@@ -374,9 +373,9 @@ public final class CommManager {
 
 		// Do some logging
 		if(retryInterval == Long.MAX_VALUE) {
-			_Logger.trace("[thread:{}] getNextRetryInterval() returning MAX_VALUE", Thread.currentThread().getId());
+			if(this._logger != null) { this._logger.debug("[thread:%1$d] getNextRetryInterval() returning MAX_VALUE", Thread.currentThread().getId()); }
 		} else {
-			_Logger.trace("[thread:{}] getNextRetryInterval() returning {} milliseconds", Thread.currentThread().getId(), retryInterval);
+			if(this._logger != null) { this._logger.debug("[thread:%1$d] getNextRetryInterval() returning {} milliseconds", Thread.currentThread().getId(), retryInterval); }
 		}
 
 		return(retryInterval);
@@ -419,11 +418,14 @@ public final class CommManager {
 
 					// Manage all comm work here (queue management, retries, etc.)
 					synchronized(_workManagmentLock) {
-						_Logger.debug(String.format(Locale.US, "[thread:%1$d] queued:{%2$d} active:{%3$d} retry:{%4$d}", 
-								Thread.currentThread().getId(), 
-								_queuedWork.size(), 
-								_activeWork.size(), 
-								_retryWork.size()));
+						if(_logger != null) { 
+							_logger.debug(
+									"[thread:%1$d] queued:{%2$d} active:{%3$d} retry:{%4$d}", 
+									Thread.currentThread().getId(), 
+									_queuedWork.size(), 
+									_activeWork.size(), 
+									_retryWork.size());
+						}
 
 						// Check the retry queue to see if we need to move any work from pending retry to the priority queue
 						long now = System.currentTimeMillis();
@@ -436,7 +438,7 @@ public final class CommManager {
 						for(Work retryWork : retryNowList) {
 							addWorkToQueue(retryWork, ManagedQueue.QUEUED);
 							retryWork.setState(Status.WAITING);
-							_Logger.debug("[thread:{}] Request {} moved from retry to queue", Thread.currentThread().getId(), retryWork.getId());
+							if(_logger != null) { _logger.debug("[thread:%1$d] Request %2$d moved from retry to queue", Thread.currentThread().getId(), retryWork.getId()); }
 						}
 
 						// Check current work to see if we can start more work
@@ -459,28 +461,26 @@ public final class CommManager {
 						sleepTime = CommManager.this.getNextRetryInterval();
 
 						// Sleep until there is more work to do
-						_Logger.debug(String.format(
-								Locale.US, 
-								"[thread:%1$d] Work thread is waiting to be notified [sleepTime:%2$d]", 
-								Thread.currentThread().getId(), 
-								sleepTime));
+						if(_logger != null) { 
+							_logger.debug("[thread:%1$d] Work thread is waiting to be notified [sleepTime:%2$d]", Thread.currentThread().getId(), sleepTime);
+						}
 						_workManagmentLock.wait(sleepTime);
-						_Logger.debug(String.format(Locale.US, "[thread:%1$d] Work thread is awake", Thread.currentThread().getId()));
+						if(_logger != null) { _logger.debug("[thread:%1$d] Work thread is awake", Thread.currentThread().getId()); }
 					}
 
 					if(_workThreadStopping) { break;}
 
 				} catch(Exception e) {
-					_Logger.error(String.format(Locale.US, "[thread:%1$d] failure", Thread.currentThread().getId()), e);
+					if(_logger != null) { _logger.error(e, "[thread:%1$d] failure", Thread.currentThread().getId()); }
 					try { Thread.sleep(5000); } catch(Exception f) { }  // No-op OK
 				}
 			}
-			_Logger.debug("[thread:{}] Work Thread exited", Thread.currentThread().getId());
+			if(_logger != null) { _logger.debug("[thread:%1$d] Work Thread exited", Thread.currentThread().getId()); }
 		}
 
 	}
 
-	/** A simple {@link Comparator} implementation for {@link Work} instances that wraps the Comparator provided by the current {@link PriorityManagmentProvider}. */
+	/** A simple {@link Comparator} implementation for {@link Work} instances that wraps the Comparator provided by the current {@link PriorityManagementProvider}. */
 	private Comparator<Work> _workComparator = new Comparator<Work>() {
 		@Override
 		public int compare(Work lhs, Work rhs) {
@@ -510,12 +510,12 @@ public final class CommManager {
 
 			// Log response
 			if(response == null) {
-				_Logger.error("{} Received a NULL result", this._logPrefix);
+				if(_logger != null) { _logger.error("%1$s Received a NULL result", this._logPrefix); }
 			} else {
-				if(_Logger.isTraceEnabled()) {
-					_Logger.trace("{} Response code: {}", this._logPrefix, response.getResponseCode());
+				if(_logger != null) {
+					_logger.debug("%1$s Response code: %2$d", this._logPrefix, response.getResponseCode());
 					if((response.getResponseBody() != null) && (response.getResponseBody().length() > 0)) {
-						_Logger.trace("{} Response body:\r\n{}", this._logPrefix, response.getResponseBody());
+						_logger.debug("%1$s Response body:\r\n%2$s", this._logPrefix, response.getResponseBody());
 					}
 					if((response.getHeaders() != null) && (response.getHeaders().size() > 0)) {
 						StringBuilder logMsg = new StringBuilder(this._logPrefix);
@@ -529,7 +529,7 @@ public final class CommManager {
 								logMsg.append("\r\n");
 							}
 						}
-						_Logger.trace("{} {}", this._logPrefix, logMsg.toString());
+						_logger.debug("%1$s %2$s", this._logPrefix, logMsg.toString());
 					}
 				}
 			}
@@ -559,7 +559,7 @@ public final class CommManager {
 					    sslContext.init(null, _TrustAllCertsManagers, new java.security.SecureRandom());
 						((HttpsURLConnection)urlConnection).setSSLSocketFactory(sslContext.getSocketFactory());
 					} catch (Exception e) {
-						_Logger.error(String.format(Locale.US, "%1$s Disabling SSL cert checking failed", this._logPrefix), e);
+						if(_logger != null) { _logger.error(e, "%1$s Disabling SSL cert checking failed", this._logPrefix); }
 					}
 				}
 
@@ -569,7 +569,7 @@ public final class CommManager {
 				urlConnection.setReadTimeout(CommManager.this._readTimeoutMilliseconds);
 				urlConnection.setDoInput(true);
 				urlConnection.setRequestMethod(this._work.getRequest().getMethod().name());
-				_Logger.debug("{} Making an HTTP {} request", this._logPrefix, this._work.getRequest().getMethod().name());
+				if(_logger != null) { _logger.debug("%1$s Making an HTTP %2$s request", this._logPrefix, this._work.getRequest().getMethod().name()); }
 
 				// Add any common request headers. Headers set here will be overridden below if there are duplicates.
 				urlConnection.setRequestProperty("Accept-Encoding", "gzip");
@@ -601,7 +601,7 @@ public final class CommManager {
 						outStream = urlConnection.getOutputStream();
 						outStream.write(this._work.getRequest().getPostData());
 						outStream.flush();
-						_Logger.debug("{} Sent {} bytes of POST body data", this._logPrefix, this._work.getRequest().getPostData().length);
+						if(_logger != null) { _logger.debug("%1$s Sent %2$d bytes of POST body data", this._logPrefix, this._work.getRequest().getPostData().length); }
 					} finally {
 				        if(outStream != null) { try { outStream.close(); } catch(Exception e) {} }  // Exception suppression is OK here
 					}
@@ -617,19 +617,24 @@ public final class CommManager {
 					//**************************************** 
 	
 					// Read the response
-					if(urlConnection.getContentLengthLong() > 0) {
+					if(urlConnection.getContentLength() > 0) {
 						int readCount;
 						byte[] data = new byte[512];
 
 						// Support GZIPed responses
 						in = urlConnection.getInputStream();
-						String contentEncoding = Response.getContentEncoding(urlConnection.getHeaderFields());
+						String contentEncoding = null;
+						try {
+							contentEncoding = Response.getContentEncoding(urlConnection.getHeaderFields());
+						} catch(Exception e) {
+							if(_logger != null) { _logger.error(e, "Failed to parse value from 'Content-Encoding' header"); }  // No-op OK
+						}
 						if ((contentEncoding != null) && (contentEncoding.length() > 0) && (contentEncoding.equalsIgnoreCase("gzip"))) {
 						    in = new GZIPInputStream(in);
-							_Logger.debug("{} Received gzipped data", this._logPrefix);
+							if(_logger != null) { _logger.debug("%1$s Received gzipped data", this._logPrefix); }
 						}
 						else{
-							_Logger.debug("{} Received non-gzipped data", this._logPrefix);
+							if(_logger != null) { _logger.debug("%1$s Received non-gzipped data", this._logPrefix); }
 						}
 
 						while((readCount = in.read(data, 0, data.length)) != -1) {
@@ -640,7 +645,7 @@ public final class CommManager {
 				
 				} catch(Exception e) {
 
-					_Logger.error(this._logPrefix, e);
+					if(_logger != null) { _logger.error(e, this._logPrefix); }
 
 					// Update the work state based on the exception
 					this.handleWorkUpdatesOnException(e);
@@ -655,9 +660,10 @@ public final class CommManager {
 						urlConnection.getHeaderFields(), 
 						urlConnection.getResponseCode(), 
 						this._work.getRequest().getId(),
-						(int)(System.currentTimeMillis() - start));
+						(int)(System.currentTimeMillis() - start),
+						_logger);
 				this._work.setResponse(response);
-				_Logger.debug("{} Request finished with a {} response code", this._logPrefix, this._work.getResponse().getResponseCode());
+				if(_logger != null) { _logger.debug("%1$s Request finished with a %2$d response code", this._logPrefix, this._work.getResponse().getResponseCode()); }
 
 				// Update the work state based on the response
 				this.handleWorkUpdatesOnResponse(response, urlConnection);
@@ -671,7 +677,7 @@ public final class CommManager {
 				// Always clean up
 		        if(in != null) { try { in.close(); } catch(Exception e) {} }  // Exception suppression is OK here
 		        if(urlConnection != null) { try { urlConnection.disconnect(); } catch(Exception e) {} }  // Exception suppression is OK here
-				_Logger.trace("{} Processing took {} milliseconds", this._logPrefix, (System.currentTimeMillis() - start));
+				if(_logger != null) { _logger.debug("%1$s Processing took %2$d milliseconds", this._logPrefix, (System.currentTimeMillis() - start)); }
 			}
 
 			return(response);
@@ -735,9 +741,7 @@ public final class CommManager {
 				// ************ REDIRECT ************
 				// HttpURLConnection is not handling redirects for us, so support "3xx Location" response triggered redirecting
 				URI targetUri = response.getLocationFromHeaders(this._work.getRequest());
-				if(_Logger.isDebugEnabled()) {
-					_Logger.debug("{} Redirecting from {} to {}", new Object[] { this._logPrefix, this._work.getRequest().getUri().toString(), targetUri.toString() });
-				}
+				if(_logger != null) { _logger.debug("%1$s Redirecting from %2$s to %3$s", this._logPrefix, this._work.getRequest().getUri().toString(), targetUri.toString()); }
 				this._work.getRequest().redirect(targetUri);  // This call increments the request redirect count
 
 				// We process redirects through the retry queue (to be retried immediately)
@@ -777,7 +781,7 @@ public final class CommManager {
 				this._work.setResponse(cachedResponse);
 				this._work.addFutureTask(new CachedResponseFuture(cachedResponse));
 				this._work.setState(Status.COMPLETED);
-				_Logger.info("[thread:{}] handleWorkUpdatesOnResponse() Returning cached results post 304 [id:{}]", Thread.currentThread().getId(), this._work.getId());
+				if(_logger != null) { _logger.info("[thread:%1$d] handleWorkUpdatesOnResponse() Returning cached results post 304 [id:%2$d]", Thread.currentThread().getId(), this._work.getId()); }
 
 			} else if((this._work.getRequest().isCachingAllowed()) && (CommManager.this._cacheProvider != null) && (response.isSuccessful())) {
 
@@ -806,13 +810,13 @@ public final class CommManager {
 								ttl, 
 								eTag, 
 								this._work.getRequest().getUri());
-						_Logger.debug("{} Response for request {} added to cache", this._logPrefix, this._work.getRequest().getId());
+						if(_logger != null) { _logger.debug("%1$s Response for request %2$d added to cache", this._logPrefix, this._work.getRequest().getId()); }
 
 						// We will go ahead and enforce LRU here as we may have just added a new cache entry
 						CommManager.this._cacheProvider.trimLru();
 					}
 				} catch(Exception e) {
-					_Logger.error("Response serialization to cache failed", e);
+					if(_logger != null) { _logger.error(e, "Response serialization to cache failed"); }
 				} finally {
 					if(out != null) { try { out.close(); } catch(Exception e) {} } // No-op on exception OK here
 					if(outStream != null) { try { outStream.close(); } catch(Exception e) {} } // No-op on exception OK here
@@ -831,7 +835,7 @@ public final class CommManager {
 			// Clear the finished work out of the managed queues
 			synchronized(_workManagmentLock) {
 
-				_Logger.debug("{} Work completed, doing cleanup [state:{}]", this._logPrefix, this._work.getState());
+				if(_logger != null) { _logger.debug("%1$s Work completed, doing cleanup [state:%2$s]", this._logPrefix, this._work.getState()); }
 
 				// TODO: Ensure that Work state change and queue management both always happen within _workManagmentLock
 
@@ -851,17 +855,17 @@ public final class CommManager {
 
 						// Ensure finished work is no longer in any of the queues
 						if(_queuedWork.remove(this._work)) {
-							_Logger.error("{} Finished work has been removed from _queuedWork", this._logPrefix);
+							if(_logger != null) { _logger.error("%1$s Finished work has been removed from _queuedWork", this._logPrefix); }
 						}
 						if(_activeWork.remove(this._work)) {
-							_Logger.debug("{} Finished work has been removed from _activeWork", this._logPrefix);
+							if(_logger != null) { _logger.debug("%1$s Finished work has been removed from _activeWork", this._logPrefix); }
 						}
 						if(_retryWork.remove(this._work)) {
-							_Logger.error("{} Finished work has been removed from _retryWork", this._logPrefix);
+							if(_logger != null) { _logger.error("%1$s Finished work has been removed from _retryWork", this._logPrefix); }
 						}
 
 						// Kick the work thread to check for new work (a spot just opened up!)
-						_Logger.trace("{} kicking work thread", this._logPrefix);
+						if(_logger != null) { _logger.debug("%1$s kicking work thread", this._logPrefix); }
 						_workManagmentLock.notify();
 
 						break;
@@ -876,17 +880,14 @@ public final class CommManager {
 		
 		private String _name = "default";
 		private CacheProvider _cacheProvider = null;
-		private PriorityManagmentProvider _priorityManagmentProvider = null;
+		private PriorityManagementProvider _priorityManagementProvider = null;
 		private RetryPolicyProvider _retryPolicyProvider = null;
 		private ConfigurationProvider _configurationProvider = null;
+		private LoggingProvider _loggingProvider = null;
 
 		public Builder() {
 
-			// This is where we configure any sane defaults for pluggable sub-systems like caching provider, 
-			// request priority, failure policies, configuration provider, response body handling, etc.
-
-			this._priorityManagmentProvider = new DefaultPriorityManagmentProvider();
-			this._retryPolicyProvider = new DefaultRetryPolicyProvider();
+			// Any sane state-less defaults for pluggable sub-systems like configuration provider, etc. can be set here.
 			this._configurationProvider = new DefaultConfigurationProvider();
 		}
 
@@ -911,13 +912,13 @@ public final class CommManager {
 		}
 
 		/**
-		 * Sets the {@link PriorityManagmentProvider} instance used by the comm framework for work priority queue management.
+		 * Sets the {@link PriorityManagementProvider} instance used by the comm framework for work priority queue management.
 		 * The priority provider set here will be used by the {@link CommManager} instances subsequently created via {@link Builder#create()}.
 		 * If not set then {@link DefaultPriorityManagmentProvider} is used, which provides a simple age based anti queue starvation implementation.
 		 */
-		public Builder setPriorityManagmentProvider(PriorityManagmentProvider priorityManagmentProvider) {
+		public Builder setPriorityManagmentProvider(PriorityManagementProvider priorityManagmentProvider) {
 			if(priorityManagmentProvider == null) { throw(new IllegalArgumentException("'priorityManagmentProvider' can not be NULL")); }
-			this._priorityManagmentProvider = priorityManagmentProvider;
+			this._priorityManagementProvider = priorityManagmentProvider;
 			return(this);
 		}
 
@@ -947,13 +948,39 @@ public final class CommManager {
 		}
 
 		/**
+		 * Sets the {@link LoggingProvider} instance used by the comm framework for logging.
+		 * The default is <b>null</b> (no logging). The logging provider set here will be used by the 
+		 * {@link CommManager} instances subsequently created via {@link Builder#create()}.
+		 */
+		public Builder setLoggingProvider(LoggingProvider loggingProvider) {
+			// Setting logging provider to NULL is OK and results in no logging
+			this._loggingProvider = loggingProvider;
+			return(this);
+		}
+
+		/**
 		 * Creates a new {@link CommManager} instance based on the values currently configured on this {@link Builder} instance.
 		 * @return A {@link CommManager} instance.
 		 */
 		public CommManager create() {
 
+			// Any sane defaults for pluggable sub-systems like priority management provider, 
+			// etc. that relay on state set by the Builder setters can be set here.
+			if(this._priorityManagementProvider == null) {
+				this._priorityManagementProvider = new DefaultPriorityManagmentProvider(this._loggingProvider);
+			}
+			if(this._retryPolicyProvider == null) {
+				this._retryPolicyProvider = new DefaultRetryPolicyProvider(this._loggingProvider);
+			}
+
 			// Create a CommManager instance
-			return(new CommManager(this._name, this._cacheProvider, this._priorityManagmentProvider, this._retryPolicyProvider, this._configurationProvider));
+			return(new CommManager(
+					this._name, 
+					this._cacheProvider, 
+					this._priorityManagementProvider, 
+					this._retryPolicyProvider, 
+					this._configurationProvider, 
+					this._loggingProvider));
 		}
 
 	}

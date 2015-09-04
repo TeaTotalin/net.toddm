@@ -18,9 +18,7 @@ package net.toddm.comm.tests;
 import java.net.URI;
 import java.nio.charset.Charset;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import net.toddm.cache.DefaultLogger;
 import net.toddm.comm.CommManager;
 import net.toddm.comm.Response;
 import net.toddm.comm.Work;
@@ -30,12 +28,10 @@ import junit.framework.TestCase;
 
 public class TestGZIP extends TestCase {
 
-	private static Logger _Logger = LoggerFactory.getLogger(TestMain.class.getSimpleName());
-
 	public void testGZIPResponse() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
-		CommManager commManager = commManagerBuilder.setName("TEST").create();
+		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
 		Work work = commManager.enqueueWork(new URI("http://httpbin.org/gzip"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
         assertNotNull(work);
 
@@ -44,7 +40,7 @@ public class TestGZIP extends TestCase {
         assertEquals(200, (int)response.getResponseCode());
 
 		String results = response.getResponseBody();
-        _Logger.trace(results);
+		System.out.println(results);
 		assertNotNull(results);
 		assertTrue(results.length() > 0);
 

@@ -22,6 +22,7 @@ import java.util.Collections;
 
 import junit.framework.Assert;
 import junit.framework.TestCase;
+import net.toddm.cache.DefaultLogger;
 import net.toddm.comm.CommManager;
 import net.toddm.comm.DefaultPriorityManagmentProvider;
 import net.toddm.comm.Priority;
@@ -35,14 +36,14 @@ public class TestDefaultPriorityManagmentProvider extends TestCase {
 
 		// Get a Work object...
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
-		CommManager commManager = commManagerBuilder.setName("TEST").create();
+		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
 		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.LOW, false);
 
 		// Get the Priority object instance created for the work
 		Priority testPriority = work.getPriority();
 
 		// Create an instance of the default priority management provider
-		DefaultPriorityManagmentProvider priorityManagmentProvider = new DefaultPriorityManagmentProvider();
+		DefaultPriorityManagmentProvider priorityManagmentProvider = new DefaultPriorityManagmentProvider(new DefaultLogger());
 		Assert.assertEquals(StartingPriority.LOW.getPriorityValue(), testPriority.getValue());
 		priorityManagmentProvider.promotePriority(testPriority);
 		Assert.assertEquals(StartingPriority.LOW.getPriorityValue(), testPriority.getValue());
@@ -79,7 +80,7 @@ public class TestDefaultPriorityManagmentProvider extends TestCase {
 
 		// Get Priority object instances to test with by submitting work
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
-		CommManager commManager = commManagerBuilder.setName("TEST").create();
+		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
 		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.LOW, false);
 		Priority priorityLow = work.getPriority();
 		work = commManager.enqueueWork(new URI("http://httpbin.org/status/200"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
@@ -98,7 +99,7 @@ public class TestDefaultPriorityManagmentProvider extends TestCase {
 		Assert.assertEquals(StartingPriority.MEDIUM.getPriorityValue(), priorityList.get(2).getValue());
 
 		// Sort and validate
-		DefaultPriorityManagmentProvider priorityManagmentProvider = new DefaultPriorityManagmentProvider();
+		DefaultPriorityManagmentProvider priorityManagmentProvider = new DefaultPriorityManagmentProvider(new DefaultLogger());
 		Collections.sort(priorityList, priorityManagmentProvider.getPriorityComparator());
 
 		Assert.assertEquals(StartingPriority.HIGH.getPriorityValue(), priorityList.get(0).getValue());

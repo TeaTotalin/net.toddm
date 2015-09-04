@@ -23,6 +23,8 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
+import net.toddm.cache.DefaultLogger;
+import net.toddm.cache.LoggingProvider;
 import net.toddm.comm.CommManager;
 import net.toddm.comm.Priority;
 import net.toddm.comm.Request;
@@ -55,10 +57,12 @@ public class MainActivity extends ActionBarActivity {
       log("Starting tests...");
 
       // Make a comm manager instance
+      LoggingProvider logger = new DefaultLogger();
       CommManager.Builder commManagerBuilder = new CommManager.Builder();
       this._commManager = commManagerBuilder
           .setName("SampleAppMainCommManager")
-          .setCacheProvider(DBCacheProvider.getInstance(this, "comm_results_cache", 1, 100))
+          .setCacheProvider(DBCacheProvider.getInstance(this, "comm_results_cache", 1, 100, logger))
+          .setLoggingProvider(logger)
           .create();
 
       // Wire up the test button

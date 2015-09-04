@@ -21,6 +21,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 
 import junit.framework.TestCase;
+import net.toddm.cache.DefaultLogger;
 import net.toddm.comm.CommManager;
 import net.toddm.comm.DefaultRetryPolicyProvider;
 import net.toddm.comm.Priority.StartingPriority;
@@ -34,7 +35,7 @@ public class TestDefaultRetryPolicyProvider extends TestCase {
 
 	public void testShouldRetryOnError() throws Exception {
 		
-		DefaultRetryPolicyProvider retryPolicyProvider = new DefaultRetryPolicyProvider();
+		DefaultRetryPolicyProvider retryPolicyProvider = new DefaultRetryPolicyProvider(new DefaultLogger());
 
 		RetryProfile retryProfile = retryPolicyProvider.shouldRetry(new RequestStub(), new SocketTimeoutException());
 		assertTrue(retryProfile.shouldRetry());
@@ -46,7 +47,7 @@ public class TestDefaultRetryPolicyProvider extends TestCase {
 
 	public void testShouldRetryOnResponse() throws Exception {
 
-		DefaultRetryPolicyProvider retryPolicyProvider = new DefaultRetryPolicyProvider();
+		DefaultRetryPolicyProvider retryPolicyProvider = new DefaultRetryPolicyProvider(new DefaultLogger());
 
 		RetryProfile retryProfile = retryPolicyProvider.shouldRetry(new RequestStub(), new ResponseStub(302, null));
 		assertFalse(retryProfile.shouldRetry());
@@ -64,7 +65,7 @@ public class TestDefaultRetryPolicyProvider extends TestCase {
 	public void test503Handling() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
-		CommManager commManager = commManagerBuilder.setName("TEST").create();
+		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
 
 		Work work = commManager.enqueueWork(new URI("http://httpbin.org/status/503"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
         assertNotNull(work);
@@ -79,7 +80,7 @@ public class TestDefaultRetryPolicyProvider extends TestCase {
 	public void test202Handling() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
-		CommManager commManager = commManagerBuilder.setName("TEST").create();
+		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
 
 		Work work = commManager.enqueueWork(new URI("http://httpbin.org/status/202"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
         assertNotNull(work);
@@ -94,7 +95,7 @@ public class TestDefaultRetryPolicyProvider extends TestCase {
 	private class ResponseStub extends Response {
 		private static final long serialVersionUID = 7455101257115334805L;
 		public ResponseStub(int responseCode, Long retryAfterSeconds) throws URISyntaxException {
-			super(null, null, responseCode, 1, 1);
+			super(null, null, responseCode, 1, 1, new DefaultLogger());
 			if(retryAfterSeconds != null) {
 				ArrayList<String> retryAfterHeaderValue = new ArrayList<String>();
 				retryAfterHeaderValue.add(Long.toString(retryAfterSeconds));

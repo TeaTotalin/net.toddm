@@ -17,20 +17,27 @@ package net.toddm.comm;
 
 import java.util.Comparator;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import net.toddm.cache.LoggingProvider;
 
 /**
  * A simple implementation of {@link PriorityProvider} that guards against starvation with simple timestamps based priority promotion.
  * <p>
  * @author Todd S. Murchison
  */
-public class DefaultPriorityManagmentProvider implements PriorityManagmentProvider {
-
-	private static final Logger _Logger = LoggerFactory.getLogger(DefaultPriorityManagmentProvider.class.getSimpleName());
+public class DefaultPriorityManagmentProvider implements PriorityManagementProvider {
 
 	// TODO: CONFIG: This Promotion Interval In Milliseconds value should probably come from configuration
 	private static long _PromotionIntervalInMilliseconds = 60000;  // One minute
+	private final LoggingProvider _logger;
+
+	/**
+	 * Returns an instance of {@link DefaultPriorityManagmentProvider}.
+	 * 
+	 * @param loggingProvider <b>OPTIONAL</b> If NULL no logging callbacks are made otherwise the provided implementation will get log messages.
+	 */
+	public DefaultPriorityManagmentProvider(LoggingProvider loggingProvider) {
+		this._logger = loggingProvider;
+	}
 
 	/**
 	 * {@inheritDoc}
@@ -48,10 +55,10 @@ public class DefaultPriorityManagmentProvider implements PriorityManagmentProvid
 		if(promote) {
 
 			// Promote priority and update timestamp
-			_Logger.trace("promotePriority() PRE [request:{} priority:{}]", priority.getWork().getId(), priority.getValue());
+			if(this._logger != null) { this._logger.debug("promotePriority() PRE [request:%1$d priority:%2$d]", priority.getWork().getId(), priority.getValue()); }
 			priority._lastPromotionTimestamp = System.currentTimeMillis();
 			priority._priority--;
-			_Logger.trace("promotePriority() POST [request:{} priority:{}]", priority.getWork().getId(), priority.getValue());
+			if(this._logger != null) { this._logger.debug("promotePriority() POST [request:%1$d priority:%2$d]", priority.getWork().getId(), priority.getValue()); }
 		}
 	}
 

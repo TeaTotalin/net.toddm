@@ -33,8 +33,7 @@ import javax.net.ssl.SSLKeyException;
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLProtocolException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import net.toddm.cache.LoggingProvider;
 
 /**
  * A simple implementation of {@link RetryPolicyProvider} that provides basic support for 503 and 202 based retries 
@@ -44,13 +43,22 @@ import org.slf4j.LoggerFactory;
  */
 public class DefaultRetryPolicyProvider implements RetryPolicyProvider {
 
-	private static final Logger _Logger = LoggerFactory.getLogger(DefaultRetryPolicyProvider.class.getSimpleName());
-
 	/** Maximum number of times that this policy will recommend retrying a request the has failed due to error. */
 	private static final int _MaxErrorRetries = 5;
 
 	/** Maximum number of times that this policy will recommend retrying a request the has been told by the response to retry. */
 	private static final int _MaxResponseRetries = 5;
+
+	private final LoggingProvider _logger;
+
+	/**
+	 * Returns an instance of {@link DefaultRetryPolicyProvider}.
+	 * 
+	 * @param loggingProvider <b>OPTIONAL</b> If NULL no logging callbacks are made otherwise the provided implementation will get log messages.
+	 */
+	public DefaultRetryPolicyProvider(LoggingProvider loggingProvider) {
+		this._logger = loggingProvider;
+	}
 
 	/**
 	 * {@inheritDoc}
@@ -86,7 +94,7 @@ public class DefaultRetryPolicyProvider implements RetryPolicyProvider {
 			) )
 		{
 			shouldRetry = true;
-			_Logger.trace("Recommending request {} be retried in 3 seconds due to {}", request.getId(), error.getClass().getSimpleName());
+			if(this._logger != null) { this._logger.debug("Recommending request %1$d be retried in 3 seconds due to %2$s", request.getId(), error.getClass().getSimpleName()); }
 		}
 
 		// For Exception cases we will use a rapid retry interval of 3 seconds (hope for transient network blip)
@@ -119,11 +127,11 @@ public class DefaultRetryPolicyProvider implements RetryPolicyProvider {
 					String retryAfter = response.getHeaders().get("Retry-After").get(0);
 					retryInSeconds = Long.parseLong(retryAfter);
 				} catch(Exception e) {
-					_Logger.error("Failed to parse value from 'Retry-After' header", e);  // No-op OK
+					if(this._logger != null) { this._logger.error(e, "Failed to parse value from 'Retry-After' header"); }  // No-op OK
 				}
 			}
-			if(_Logger.isTraceEnabled()) {
-				_Logger.trace("Recommending request {} be retried in {} seconds due to {}", new Object[] { request.getId(), retryInSeconds, response.getResponseCode() });
+			if(this._logger != null) { 
+				this._logger.debug("Recommending request %1$d be retried in %2$d seconds due to %3$d", request.getId(), retryInSeconds, response.getResponseCode());
 			}
 		}
 

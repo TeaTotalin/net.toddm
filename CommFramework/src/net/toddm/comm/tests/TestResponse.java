@@ -20,6 +20,7 @@ import java.util.Locale;
 import java.util.UUID;
 
 import junit.framework.TestCase;
+import net.toddm.cache.DefaultLogger;
 import net.toddm.comm.CommManager;
 import net.toddm.comm.Response;
 import net.toddm.comm.Work;
@@ -34,7 +35,7 @@ public class TestResponse extends TestCase {
 	public void testGetLocationFromHeadersAbsolute() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
-		CommManager commManager = commManagerBuilder.setName("TEST").create();
+		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
 		Work work = commManager.enqueueWork(new URI("http://httpbin.org/response-headers?Location=http%3A%2F%2Fwww.toddm.net%2F"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
 		assertNotNull(work);
 
@@ -49,7 +50,7 @@ public class TestResponse extends TestCase {
 	public void testGetLocationFromHeadersRelative() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
-		CommManager commManager = commManagerBuilder.setName("TEST").create();
+		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
 		Work work = commManager.enqueueWork(new URI("http://httpbin.org/response-headers?Location=%2Fget"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
 		assertNotNull(work);
 
@@ -68,7 +69,7 @@ public class TestResponse extends TestCase {
 		String eTag = UUID.randomUUID().toString();
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
-		CommManager commManager = commManagerBuilder.setName("TEST").create();
+		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
 		Work work = commManager.enqueueWork(new URI(String.format(Locale.US, "http://httpbin.org/response-headers?ETag=%1$s", eTag)), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
         assertNotNull(work);
 
@@ -82,7 +83,7 @@ public class TestResponse extends TestCase {
 	public void testGetTtlFromHeaders() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
-		CommManager commManager = commManagerBuilder.setName("TEST").create();
+		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
 		Work work = commManager.enqueueWork(new URI("http://httpbin.org/cache/100"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
         assertNotNull(work);
 
@@ -96,7 +97,7 @@ public class TestResponse extends TestCase {
 	public void testGetRetryAfterSeconds() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
-		CommManager commManager = commManagerBuilder.setName("TEST").create();
+		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
 		Work work = commManager.enqueueWork(new URI("http://httpbin.org/response-headers?Retry-After=120"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
         assertNotNull(work);
 
@@ -110,7 +111,7 @@ public class TestResponse extends TestCase {
 	public void testGetRetryAfterHTTPDateInTheFuture() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
-		CommManager commManager = commManagerBuilder.setName("TEST").create();
+		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
 		Work work = commManager.enqueueWork(new URI("http://httpbin.org/response-headers?Retry-After=Fri%2C%2007%20Nov%202088%2023%3A59%3A59%20GMT"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
         assertNotNull(work);
 
@@ -124,7 +125,7 @@ public class TestResponse extends TestCase {
 	public void testGetRetryAfterHTTPDateInThePast() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
-		CommManager commManager = commManagerBuilder.setName("TEST").create();
+		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
 		Work work = commManager.enqueueWork(new URI("http://httpbin.org/response-headers?Retry-After=Fri%2C%2007%20Nov%202014%2023%3A59%3A59%20GMT"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
         assertNotNull(work);
 

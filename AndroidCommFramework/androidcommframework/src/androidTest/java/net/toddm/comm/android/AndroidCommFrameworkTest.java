@@ -20,6 +20,7 @@ import android.test.ApplicationTestCase;
 
 import junit.framework.Assert;
 
+import net.toddm.cache.DefaultLogger;
 import net.toddm.comm.android.cache.DBCacheProvider;
 
 /**
@@ -34,14 +35,14 @@ public class AndroidCommFrameworkTest extends ApplicationTestCase<Application> {
   public void testDBCacheProvider() throws Exception {
 
     // Make use of the caching framework testing validation method to help validate our database cache provider implementation
-    DBCacheProvider cache = DBCacheProvider.getInstance(this.getContext(), "test_namespace", 1, 100);
+    DBCacheProvider cache = DBCacheProvider.getInstance(this.getContext(), "test_namespace", 1, 100, new DefaultLogger());
     net.toddm.cache.tests.MainTest.validateCachingFunctionality(cache);
   }
 
   public void testDBCacheProviderAdditional() throws Exception {
 
     // Do any additional testing of the DBCacheProvider not covered by the standard validateCachingFunctionality() method (see above)
-    DBCacheProvider cache = DBCacheProvider.getInstance(this.getContext(), "test_namespace", 1, 100);
+    DBCacheProvider cache = DBCacheProvider.getInstance(this.getContext(), "test_namespace", 1, 100, new DefaultLogger());
     cache.removeAll();
     Assert.assertEquals(0, cache.size(true));
     Assert.assertEquals(0, cache.size(false));

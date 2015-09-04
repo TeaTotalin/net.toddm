@@ -16,25 +16,21 @@
 package net.toddm.cache.tests;
 
 import java.util.List;
+import java.util.Locale;
 
 import net.toddm.cache.CacheEntry;
 import net.toddm.cache.CacheProvider;
 import net.toddm.cache.MemoryCacheProvider;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import net.toddm.cache.DefaultLogger;
 import junit.framework.TestCase;
 
 public class MainTest extends TestCase {
 
-	private static Logger _Logger = LoggerFactory.getLogger(MainTest.class.getSimpleName());
-
 	public void testMemoryCacheProvider() throws Exception {
-		_Logger.debug("#######################################");
+		System.out.println("#######################################");
 
 		// Ensure we have an empty test cache
-		CacheProvider cacheProvider = new MemoryCacheProvider("TestNamespace", 20);
+		CacheProvider cacheProvider = new MemoryCacheProvider("TestNamespace", 20, new DefaultLogger());
 		validateCachingFunctionality(cacheProvider);
 	}
 
@@ -135,5 +131,30 @@ public class MainTest extends TestCase {
 		assertEquals(0, cacheProvider.getAll(true).size());
 		assertEquals(0, cacheProvider.size(true));
 	}
+
+    /** Returns a loggable string for the given {@link Throwable} containing type, message, and stack trace information. */
+    public static String getThrowableDump(Throwable throwable) {
+        if(throwable == null) { throw(new IllegalArgumentException("'throwable' cannot be null")); }
+        return(String.format(Locale.US,
+                "%s | %s | %s",
+                throwable.getClass().getName(),
+                throwable.getMessage(),
+                getStackTrace(throwable.getStackTrace())));
+    }
+
+    /** Returns a string dump of the provided stack trace */
+    public static String getStackTrace(StackTraceElement[] stacks) {
+        if(stacks == null) { throw(new IllegalArgumentException("'stacks' cannot be null")); }
+        StringBuffer buffer = new StringBuffer();
+        for(int i = 0; i < stacks.length; i++) {
+            buffer.append(String.format(Locale.US,
+                    "%1$s : %2$s : %3$s [%4$d]\n",
+                    stacks[i].getFileName(),
+                    stacks[i].getClassName(),
+                    stacks[i].getMethodName(),
+                    stacks[i].getLineNumber()));
+        }
+        return(buffer.toString());
+    }
 
 }

@@ -22,9 +22,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /**
  * An implementation of the {@link CacheProvider} interface that is backed by runtime memory.
  * This cache will not persist across different instances of a process.
@@ -33,14 +30,13 @@ import org.slf4j.LoggerFactory;
  * @author Todd S. Murchison
  */
 public class MemoryCacheProvider implements CacheProvider {
-	
-	private static final Logger _Logger = LoggerFactory.getLogger(MemoryCacheProvider.class.getSimpleName());
 
 	private static final String _DefaultNamespace = "e98fa3ee-cb8d-4e37-8b43-adb04036031a";
 
 	private final String _namespace;
 	private final CacheEntryAgeComparator _cacheEntryAgeComparator = new CacheEntryAgeComparator();
 	private final ConcurrentHashMap<String, CacheEntry> _keyToEntry = new ConcurrentHashMap<String, CacheEntry>();
+	private final LoggingProvider _logger;
 
     private int _lruCap;
 
@@ -53,11 +49,13 @@ public class MemoryCacheProvider implements CacheProvider {
      *
      * @param namespace <b>OPTIONAL</b> If NULL then the cache instance is created in the default namespace.
      * @param initialLruCap The maximum number of entries the cache should contain after a call to {@link #trimLru()}.
-     */
-    public MemoryCacheProvider(String namespace, int initialLruCap) {
+	 * @param logger <b>OPTIONAL</b> If NULL no logging callbacks are made otherwise the provided implementation will get log messages.
+	 */
+    public MemoryCacheProvider(String namespace, int initialLruCap, LoggingProvider logger) {
         if (initialLruCap < 0) { throw (new IllegalArgumentException("'initialLruCap' can not be negative")); }
         this._namespace = (((namespace == null) || (namespace.length() <= 0)) ? _DefaultNamespace : namespace);
         this._lruCap = initialLruCap;
+        this._logger = logger;
     }
 
 	/** {@inheritDoc} */
@@ -66,8 +64,8 @@ public class MemoryCacheProvider implements CacheProvider {
 
 		// The constructor used in the line below does argument validation
 		this._keyToEntry.put(this.getLookupKey(key), new CacheEntry(key, value, ttl, eTag, sourceUri));
-		if(_Logger.isTraceEnabled()) {
-			_Logger.trace("Cache entry added [key:{} ttl:{} eTag:{} sourceUri:{}]", new Object[] { key, ttl, eTag, sourceUri });
+		if(this._logger != null) {
+			this._logger.debug("Cache entry added [key:%1$s ttl:%2$d eTag:%3$s sourceUri:%4$s]", key, ttl, eTag, sourceUri);
 		}
 		return(true);
 	}
@@ -78,8 +76,8 @@ public class MemoryCacheProvider implements CacheProvider {
 
 		// The constructor used in the line below does argument validation
 		this._keyToEntry.put(this.getLookupKey(key), new CacheEntry(key, value, ttl, eTag, sourceUri));
-		if(_Logger.isTraceEnabled()) {
-			_Logger.trace("Cache entry added [key:{} ttl:{} eTag:{} sourceUri:{}]", new Object[] { key, ttl, eTag, sourceUri });
+		if(this._logger != null) {
+			this._logger.debug("Cache entry added [key:%1$s ttl:%2$d eTag:%3$s sourceUri:%4$s]", key, ttl, eTag, sourceUri);
 		}
 		return(true);
 	}

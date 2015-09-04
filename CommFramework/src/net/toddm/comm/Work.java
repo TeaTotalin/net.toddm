@@ -27,10 +27,8 @@ import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import net.toddm.cache.CacheEntry;
+import net.toddm.cache.LoggingProvider;
 import net.toddm.comm.Priority.StartingPriority;
 
 /**
@@ -41,8 +39,6 @@ import net.toddm.comm.Priority.StartingPriority;
  * @author Todd S. Murchison
  */
 public class Work implements Future<Response> {
-
-	private static final Logger _Logger = LoggerFactory.getLogger(Work.class.getSimpleName());
 
 	/** An set of possible states that work can be in */
 	public enum Status {
@@ -65,6 +61,7 @@ public class Work implements Future<Response> {
     private final Request _request;
     private final Priority _priority;
     private final ConcurrentLinkedQueue<FutureTask<Response>> _futureTasks = new ConcurrentLinkedQueue<FutureTask<Response>>();
+	private final LoggingProvider _logger;
 
 	private Status _state = Status.CREATED;
 	private Response _response = null;
@@ -77,7 +74,8 @@ public class Work implements Future<Response> {
 			byte[] postData, 
 			Map<String, String> headers, 
 			StartingPriority priority, 
-			boolean cachingAllowed)
+			boolean cachingAllowed, 
+			LoggingProvider loggingProvider)
 	{
 
 		// Validate parameters
@@ -92,6 +90,7 @@ public class Work implements Future<Response> {
 		this._state = Status.CREATED;
 		this._request = new Request(uri, method, postData, headers, cachingAllowed);
 		this._priority = new Priority(this, priority);
+		this._logger = loggingProvider;
 	}
 
 	/** Returns the {@link Request} instance associated with this {@link Work} instance. */
@@ -238,7 +237,7 @@ public class Work implements Future<Response> {
 		// Sort responses to ensure we return the newest most relevant one?
 		Collections.sort(responses, _ResponseComparator);
 
-		_Logger.debug("Done waiting on Work [responseCount:{} futureTaskCount:{}]", responseCount, this._futureTasks.size());
+		if(this._logger != null) { this._logger.debug("Done waiting on Work [responseCount:%1$d futureTaskCount:%2$d]", responseCount, this._futureTasks.size()); }
 		if(responses.size() <= 0) {
 			return(null);
 		} else {
