@@ -31,22 +31,6 @@ Some of the features I wanted the framework to include, in no particular order, 
   - Support canceling requests
 
 
-<h4>---- A note about SLF4J ----</h4>
-One of my goals in creating these frameworks is to make them as compatible and portable as possible.
-That is why you may notice things like including a base 64 implementation rather than using one of the
-many libs that provide this.  The one external lib I chose to include is SLF4J.  I made the decision 
-to use SLF4J because it is very widely supported, including a port for Android, the first platform specific
-implementation I planned.
-
-If your target is a standard Java deployment then you are welcome to simply use the SLF4J JARs included in 
-the projects.  If you are targeting a platform that requires a platform specific port, such as Android,
-then you can export the project JARs without the included SLF4J JARs and separately include the SLF4J port
-you need.
-
-I've included an older SLF4J version, but it should be safe to use this code base with newer versions as
-desired.
-
-
 <h4>---- CachingFramework ----</h4>
 This is a fairly thin framework defining basic caching.  This framework only provides cache providers that
 can be implemented in a standard Java, platform independent way, such as an in-memory backed provider.
