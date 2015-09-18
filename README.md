@@ -1,5 +1,5 @@
 
-For more detailed documentation see the Wiki.
+For more detailed documentation see the <a href="https://github.com/TeaTotalin/net.toddm/wiki/CommFramework">Wiki</a>.
 
 
 <h4>---- Goals ----</h4>
