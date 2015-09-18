@@ -20,7 +20,7 @@ import java.util.Comparator;
 import net.toddm.cache.LoggingProvider;
 
 /**
- * A simple implementation of {@link PriorityProvider} that guards against starvation with simple timestamps based priority promotion.
+ * A simple implementation of {@link PriorityManagementProvider} that guards against starvation with simple timestamps based priority promotion.
  * <p>
  * @author Todd S. Murchison
  */

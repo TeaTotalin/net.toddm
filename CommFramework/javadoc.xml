@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<project default="javadoc">
+    <target name="javadoc">
+        <javadoc 
+            access="protected" 
+            author="true" 
+            classpath="/Users/toddm/Library/Android/sdk/platforms/android-21/android.jar:/Users/toddm/code_home/CommFramework/libs/junit-3.8.1.jar:/Users/toddm/.m2/repository/junit/junit/3.8.1/junit-3.8.1.jar:/Users/toddm/code_home/CommFramework/libs/caching_framework.jar:libs/junit-3.8.1.jar:target/classes" 
+            destdir="/Users/toddm/code_home/JavaDoc" 
+            doctitle="CommFramework" 
+            nodeprecated="false" 
+            nodeprecatedlist="false" 
+            noindex="false" 
+            nonavbar="false" 
+            notree="false" 
+            packagenames="net.toddm.comm.android.cache,net.toddm.comm.tests,net.toddm.cache.tests,net.toddm.cache" 
+            source="1.7" 
+            sourcefiles="/Users/toddm/code_home/CommFramework/src/net/toddm/comm/RetryPolicyProvider.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/CommException.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/RetryProfile.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/Response.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/CommManager.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/ConfigurationException.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/ConfigurationProvider.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/DefaultPriorityManagmentProvider.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/PriorityManagementProvider.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/Request.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/DefaultConfigurationProvider.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/DefaultRetryPolicyProvider.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/Base64.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/Priority.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/CachedResponseFuture.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/Work.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/MapConfigurationProvider.java" sourcepath="src:/Users/toddm/code_home/CommFramework/resource:resource:/Users/toddm/code_home/CommFramework/src:/Users/toddm/code_home/AndroidCommFramework/androidcommframework/src/main/gen:/Users/toddm/code_home/AndroidCommFramework/androidcommframework/src/main/src" 
+            splitindex="true" 
+            use="true" 
+            version="true">
+
+        </javadoc>
+    </target>
+</project>

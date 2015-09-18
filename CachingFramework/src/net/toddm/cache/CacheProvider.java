@@ -98,7 +98,7 @@ public interface CacheProvider {
 	/**
 	 * Sets the LRU cap cache size for use when enforcing the LRU cap.
 	 * Note that it is up to client code to call {@link #trimLru()} to enforce this limit.
-	 * @param maxSize The maximum number of entries the cache should contain after a call to {@link #trimLru()}.
+	 * @param maxCacheSize The maximum number of entries the cache should contain after a call to {@link #trimLru()}.
 	 */
 	public void setLruCap(int maxCacheSize);
 

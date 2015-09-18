@@ -57,8 +57,6 @@ import net.toddm.comm.Work.Status;
  * This is the main work horse of the communications framework. Instances of this class are used to submit work and provide priority queue 
  * management, result caching, failure and response based retry, and much more.
  * <p>
- * The communications framework makes use of SLF4J. To use in Android include SLF4J Android (http://www.slf4j.org/android/) in your Android project.
- * <p>
  * @author Todd S. Murchison
  */
 public final class CommManager {

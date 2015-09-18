@@ -183,46 +183,47 @@ public class Response implements Serializable {
 	}
 
 	/**
-	 * If we are able to resolve a TTL value form the Cache-Control headers of this {@link Response} instance
+	 * If we are able to resolve a TTL value form the Cache-Control headers ("max-age") of this {@link Response} instance
 	 * then the TTL value is returned, otherwise NULL is returned. The TTL value returned is in milliseconds.
 	 */
 	public Long getTtlFromHeaders() {
 		Long ttl = null;
 
-		// Parse caching data from the headers (Cache-Control=no-cache, max-age={delta-seconds}):
-		//	Example:   Cache-Control=max-age=2300, public
-		if((this._headers != null) && (this._headers.containsKey("Cache-Control")) && (this._headers.get("Cache-Control") != null) && (this._headers.get("Cache-Control").size() > 0)) {
-			String cacheControl = null;
-			for(String value : this._headers.get("Cache-Control")) {
-				cacheControl = value;
-				break;
-			}
-			if((cacheControl != null) && (cacheControl.length() > 0)) {
-				for(String cacheDirective : cacheControl.split(",")) {
-					if(cacheDirective == null) { continue; }
-					cacheDirective = cacheDirective.trim();
-
-					// Check if we are not caching and if we are not then bail
-					if("no-cache".equalsIgnoreCase(cacheDirective)) { return(null); }
-
-					// Check for the max-age directive
-					String[] directivePair = cacheDirective.split("=");
-					if(	(directivePair.length > 1) && 
-						(directivePair[0] != null) && 
-						(directivePair[1] != null) && 
-						("max-age".equalsIgnoreCase(directivePair[0].trim()))) 
-					{
-						try {
-							long ttlInSeconds = Long.parseLong(directivePair[1].trim());
-							if(ttlInSeconds >= 0) { ttl = ttlInSeconds * 1000; }
-						} catch(NumberFormatException e) {
-							if(this._logger != null) { this._logger.error(e, "getTtlFromResponse() failed"); }
-						}
-					}
-				}
+		// If we are caching and there is a max-age directive parse it to a TTL as a long in milliseconds
+		Map<String, String> cacheControlDirectives = this.parseCacheControlHeader();
+		if((!cacheControlDirectives.containsKey("no-cache")) && (cacheControlDirectives.containsKey("max-age"))) {
+			try {
+				String maxAgeStr = cacheControlDirectives.get("max-age");
+				long ttlInSeconds = Long.parseLong(maxAgeStr);
+				if(ttlInSeconds >= 0) { ttl = ttlInSeconds * 1000; }
+			} catch(NumberFormatException e) {
+				if(this._logger != null) { this._logger.error(e, "getTtlFromResponse() failed"); }
 			}
 		}
+
 		return(ttl);
+	}
+
+	/**
+	 * If we are able to resolve a "max-stale" value form the Cache-Control headers of this {@link Response} instance
+	 * then the value is returned, otherwise NULL is returned. The "max-stale" value returned is in milliseconds.
+	 */
+	public Long getMaxStaleFromHeaders() {
+		Long maxStale = null;
+
+		// If we are caching and there is a max-stale directive parse it as a long in milliseconds
+		Map<String, String> cacheControlDirectives = this.parseCacheControlHeader();
+		if((!cacheControlDirectives.containsKey("no-cache")) && (cacheControlDirectives.containsKey("max-stale"))) {
+			try {
+				String maxStaleStr = cacheControlDirectives.get("max-stale");
+				long maxStaleInSeconds = Long.parseLong(maxStaleStr);
+				if(maxStaleInSeconds >= 0) { maxStale = maxStaleInSeconds * 1000; }
+			} catch(NumberFormatException e) {
+				if(this._logger != null) { this._logger.error(e, "getMaxStaleFromHeaders() failed"); }
+			}
+		}
+
+		return(maxStale);
 	}
 
 	/** If we are able to resolve an ETag value form the headers of this {@link Response} instance then the ETag value is returned, otherwise NULL is returned. */
@@ -232,6 +233,41 @@ public class Response implements Serializable {
 			eTag = this._headers.get("ETag").get(0);
 		}
 		return(eTag);
+	}
+	
+	/**
+	 * If this {@link Response} instance contains a Cache-Control header this method parses it into name-value pairs and returns them 
+	 * as a map. Any cache control directives that do not have a value (such as "no-cache") are added to the map with a null value.
+	 * If the response contains multiple Cache-Control headers then the last values parsed win.
+	 */
+	private Map<String, String> parseCacheControlHeader() {
+		Map<String, String> resultMap = new HashMap<String, String>();
+
+		// Parse caching data from the headers (Cache-Control=no-cache, max-age={delta-seconds}):
+		//	Example:   Cache-Control=max-age=2300, public
+		if((this._headers != null) && (this._headers.containsKey("Cache-Control")) && (this._headers.get("Cache-Control") != null) && (this._headers.get("Cache-Control").size() > 0)) {
+			for(String cacheControl : this._headers.get("Cache-Control")) {
+				if((cacheControl != null) && (cacheControl.length() > 0)) {
+					for(String cacheDirective : cacheControl.split(",")) {
+						if(cacheDirective == null) { continue; }
+						cacheDirective = cacheDirective.trim();
+
+						// Branch between single-word directives and name-value pair directives
+						if(!cacheDirective.contains("=")) {
+							resultMap.put(cacheDirective, null);
+						} else {
+
+							// Parse the name-value pair
+							String[] directivePair = cacheDirective.split("=");
+							if((directivePair.length > 1) && (directivePair[0] != null) && (directivePair[1] != null)) {
+								resultMap.put(directivePair[0].trim(), directivePair[1].trim());
+							}
+						}
+					}
+				}
+			}
+		}
+		return(resultMap);
 	}
 
 	//*********************************************************************************************

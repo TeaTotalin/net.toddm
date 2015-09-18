@@ -94,6 +94,20 @@ public class TestResponse extends TestCase {
         assertEquals(100000, (long)response.getTtlFromHeaders());		
 	}
 
+	public void testGetMaxStaleFromHeaders() throws Exception {
+
+		CommManager.Builder commManagerBuilder = new CommManager.Builder();
+		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/response-headers?Cache-Control=public,+max-age=100,+max-stale=13"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
+        assertNotNull(work);
+
+        Response response = work.get();
+        assertNotNull(response);
+        assertEquals(200, (int)response.getResponseCode());
+        assertNotNull(response.getMaxStaleFromHeaders());
+        assertEquals(13000, (long)response.getMaxStaleFromHeaders());		
+	}
+
 	public void testGetRetryAfterSeconds() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();

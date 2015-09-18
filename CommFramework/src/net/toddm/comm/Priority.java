@@ -18,7 +18,7 @@ package net.toddm.comm;
 /** A class that represents a priority for a unit of {@link Work} being managed by an instance of {@link CommManager}. */
 public class Priority {
 
-	/** An enumeration of priority levels that calling code can claim for their {@Work} instances */
+	/** An enumeration of priority levels that calling code can claim for their {@link Work} instances */
 	public enum StartingPriority {
 
 		// TODO: Consider the idea of a "NEVER PROMOTES" starting priority.
