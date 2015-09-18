@@ -30,7 +30,7 @@ import net.toddm.comm.Priority;
 import net.toddm.comm.Request;
 import net.toddm.comm.Response;
 import net.toddm.comm.Work;
-import net.toddm.comm.android.cache.DBCacheProvider;
+import net.toddm.cache.android.DBCacheProvider;
 
 import java.net.URI;
 import java.util.Locale;

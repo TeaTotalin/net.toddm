@@ -4,7 +4,7 @@
         <javadoc 
             access="protected" 
             author="true" 
-            classpath="/Users/toddm/Library/Android/sdk/platforms/android-21/android.jar:/Users/toddm/code_home/CommFramework/libs/junit-3.8.1.jar:/Users/toddm/.m2/repository/junit/junit/3.8.1/junit-3.8.1.jar:/Users/toddm/code_home/CommFramework/libs/caching_framework.jar:libs/junit-3.8.1.jar:target/classes" 
+            classpath="/Users/toddm/Library/Android/sdk/platforms/android-21/android.jar:libs/junit-3.8.1.jar:/Users/toddm/.m2/repository/junit/junit/3.8.1/junit-3.8.1.jar:libs/caching_framework.jar:/Users/toddm/code_home/CachingFramework/libs/junit-3.8.1.jar:/Users/toddm/code_home/CachingFramework/target/classes" 
             destdir="/Users/toddm/code_home/JavaDoc" 
             doctitle="CommFramework" 
             nodeprecated="false" 
@@ -12,9 +12,9 @@
             noindex="false" 
             nonavbar="false" 
             notree="false" 
-            packagenames="net.toddm.comm.android.cache,net.toddm.comm.tests,net.toddm.cache.tests,net.toddm.cache" 
+            packagenames="net.toddm.cache.android,net.toddm.cache" 
             source="1.7" 
-            sourcefiles="/Users/toddm/code_home/CommFramework/src/net/toddm/comm/RetryPolicyProvider.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/CommException.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/RetryProfile.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/Response.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/CommManager.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/ConfigurationException.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/ConfigurationProvider.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/DefaultPriorityManagmentProvider.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/PriorityManagementProvider.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/Request.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/DefaultConfigurationProvider.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/DefaultRetryPolicyProvider.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/Base64.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/Priority.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/CachedResponseFuture.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/Work.java,/Users/toddm/code_home/CommFramework/src/net/toddm/comm/MapConfigurationProvider.java" sourcepath="src:/Users/toddm/code_home/CommFramework/resource:resource:/Users/toddm/code_home/CommFramework/src:/Users/toddm/code_home/AndroidCommFramework/androidcommframework/src/main/gen:/Users/toddm/code_home/AndroidCommFramework/androidcommframework/src/main/src" 
+            sourcefiles="src/net/toddm/comm/RetryPolicyProvider.java,src/net/toddm/comm/CommException.java,src/net/toddm/comm/CommManager.java,src/net/toddm/comm/Response.java,src/net/toddm/comm/RetryProfile.java,src/net/toddm/comm/ConfigurationException.java,src/net/toddm/comm/ConfigurationProvider.java,src/net/toddm/comm/DefaultPriorityManagmentProvider.java,src/net/toddm/comm/PriorityManagementProvider.java,src/net/toddm/comm/Request.java,src/net/toddm/comm/DefaultConfigurationProvider.java,src/net/toddm/comm/DefaultRetryPolicyProvider.java,src/net/toddm/comm/Base64.java,src/net/toddm/comm/Priority.java,src/net/toddm/comm/Work.java,src/net/toddm/comm/CachedResponseFuture.java,src/net/toddm/comm/MapConfigurationProvider.java" sourcepath="/Users/toddm/code_home/CachingFramework/src:resource:/Users/toddm/code_home/CachingFramework/resource:src:/Users/toddm/code_home/AndroidCommFramework/androidcommframework/src/main/java:/Users/toddm/code_home/AndroidCommFramework/androidcommframework/src/main/gen:/Users/toddm/code_home/AndroidCommFramework/androidcommframework/src/main/src" 
             splitindex="true" 
             use="true" 
             version="true">
