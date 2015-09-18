@@ -1,4 +1,0 @@
-
-TODO:
-
-Add being able to set a response interpreter implementation AND a response validator implementation to Requests.  These mechanisms should interact with cache participation.  If result interpretation or validation fails for cached content we can blow away the cache entry as a recovery vector.  If they fail for wire results don't put it in the cache to start with.
