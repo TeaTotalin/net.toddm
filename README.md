@@ -1,5 +1,5 @@
 
-For more detailed documentation see the <a href="https://github.com/TeaTotalin/net.toddm/wiki/CommFramework">Wiki</a>.
+For more detailed documentation see the <a href="https://github.com/TeaTotalin/net.toddm/wiki/CommFramework">Wiki</a> and the <a href="http://teatotalin.github.io/net.toddm/JavaDoc/">JavaDoc</a>.
 
 
 <h4>---- Goals ----</h4>
