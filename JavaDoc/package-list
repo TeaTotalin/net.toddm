@@ -1,5 +1,3 @@
 net.toddm.cache
-net.toddm.cache.tests
+net.toddm.cache.android
 net.toddm.comm
-net.toddm.comm.android.cache
-net.toddm.comm.tests
