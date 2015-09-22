@@ -141,7 +141,7 @@ public class TestMain extends TestCase {
 
         // Update the cache TTL so it's expired
         CacheEntry cacheEntry = cache.get(Integer.toString(work.getId()), true);
-        cache.add(cacheEntry.getKey(), cacheEntry.getBytesValue(), 100, cacheEntry.getEtag(), cacheEntry.getUri());
+        cache.add(cacheEntry.getKey(), cacheEntry.getBytesValue(), 100, 0, cacheEntry.getEtag(), cacheEntry.getUri());
 
         Thread.sleep(101);
 

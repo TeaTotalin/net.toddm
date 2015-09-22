@@ -102,6 +102,7 @@ public class DBCacheProvider extends SQLiteOpenHelper implements CacheProvider {
                     "timestampCreated INTEGER NOT NULL, " +
                     "timestampModified INTEGER NOT NULL, " +
                     "ttl INTEGER NOT NULL, " +
+                    "maxStale INTEGER NOT NULL, " +
                     "sourceUri TEXT, " +
                     "eTag TEXT" +
                     ");";
@@ -132,22 +133,22 @@ public class DBCacheProvider extends SQLiteOpenHelper implements CacheProvider {
      * {@inheritDoc}
      */
     @Override
-    public boolean add(String key, String value, long ttl, String eTag, URI sourceUri) {
-        return (this.add(key, value, null, ttl, eTag, sourceUri));
+    public boolean add(String key, String value, long ttl, long maxStale, String eTag, URI sourceUri) {
+        return (this.add(key, value, null, ttl, maxStale, eTag, sourceUri));
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public boolean add(String key, byte[] value, long ttl, String eTag, URI sourceUri) {
-        return (this.add(key, null, value, ttl, eTag, sourceUri));
+    public boolean add(String key, byte[] value, long ttl, long maxStale, String eTag, URI sourceUri) {
+        return (this.add(key, null, value, ttl, maxStale, eTag, sourceUri));
     }
 
     /**
      * Add or update a value in the cache.
      */
-    private boolean add(String key, String valueString, byte[] valueBytes, long ttl, String eTag, URI sourceUri) {
+    private boolean add(String key, String valueString, byte[] valueBytes, long ttl, long maxStale, String eTag, URI sourceUri) {
         if ((key == null) || (key.length() <= 0)) {
             throw (new IllegalArgumentException("'key' can not be NULL or empty"));
         }
@@ -166,6 +167,7 @@ public class DBCacheProvider extends SQLiteOpenHelper implements CacheProvider {
             values.put("valueBytes", valueBytes);
         }
         values.put("ttl", ttl);
+        values.put("maxStale", maxStale);
         if (eTag == null) {
             values.putNull("eTag");
         } else {
@@ -297,18 +299,20 @@ public class DBCacheProvider extends SQLiteOpenHelper implements CacheProvider {
         String key = cursor.getString(1);           // key
         String valueString = null;
         if (!cursor.isNull(2)) {
-            valueString = cursor.getString(2);        // valueString
+            valueString = cursor.getString(2);      // valueString
         }
         byte[] valueBytes = null;
         if (!cursor.isNull(3)) {
-            valueBytes = cursor.getBlob(3);           // valueBytes
+            valueBytes = cursor.getBlob(3);         // valueBytes
         }
         long timestampCreated = cursor.getLong(4);  // timestampCreated
         long timestampModified = cursor.getLong(5); // timestampModified
         long ttl = cursor.getLong(6);               // ttl
+        long maxStale = cursor.getLong(7);          // max-stale
+
         URI sourceUri = null;
-        if (!cursor.isNull(7)) {
-            String uriStr = cursor.getString(7);      // sourceUri
+        if (!cursor.isNull(8)) {
+            String uriStr = cursor.getString(8);      // sourceUri
             if ((uriStr != null) || (uriStr.length() > 0)) {
                 try {
                     sourceUri = new URI(uriStr);
@@ -318,12 +322,12 @@ public class DBCacheProvider extends SQLiteOpenHelper implements CacheProvider {
             }
         }
         String eTag = null;
-        if (!cursor.isNull(8)) {
-            eTag = cursor.getString(8);               // eTag
+        if (!cursor.isNull(9)) {
+            eTag = cursor.getString(9);               // eTag
         }
 
         // Create and return the CacheEntry instance
-        return (new CacheEntry(key, valueString, valueBytes, ttl, eTag, sourceUri, timestampCreated, timestampModified));
+        return (new CacheEntry(key, valueString, valueBytes, ttl, maxStale, eTag, sourceUri, timestampCreated, timestampModified));
     }
 
     /**

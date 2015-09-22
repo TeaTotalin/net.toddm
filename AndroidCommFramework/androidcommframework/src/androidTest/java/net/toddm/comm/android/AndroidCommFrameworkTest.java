@@ -46,7 +46,7 @@ public class AndroidCommFrameworkTest extends ApplicationTestCase<Application> {
     cache.removeAll();
     Assert.assertEquals(0, cache.size(true));
     Assert.assertEquals(0, cache.size(false));
-    cache.add("test_key", "test_value", 100, null, null);
+    cache.add("test_key", "test_value", 100, 0, null, null);
     Assert.assertEquals(1, cache.size(true));
     Assert.assertEquals(1, cache.size(false));
     Thread.sleep(101);

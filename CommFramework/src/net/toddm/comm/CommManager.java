@@ -769,10 +769,14 @@ public final class CommManager {
 				String eTag = response.getETagFromHeaders();
 				if((eTag == null) || (eTag.length() <= 0)) { eTag = cacheEntry.getEtag(); }
 
+				// Check for a new "max-stale" value from the response
+				Long maxStale = response.getMaxStaleFromHeaders();
+				if(maxStale == null) { maxStale = cacheEntry.getMaxStale(); }
+
 				// Update the cache entry. We will update using the cache entry instance that we saved on the 
 				// Work object. The entry in the cache may have already been removed by LRU enforcement, etc.
 				CommManager.this._cacheProvider.remove(cacheEntry.getKey());
-				CommManager.this._cacheProvider.add(cacheEntry.getKey(), cacheEntry.getBytesValue(), ttl, eTag, cacheEntry.getUri());
+				CommManager.this._cacheProvider.add(cacheEntry.getKey(), cacheEntry.getBytesValue(), ttl, maxStale, eTag, cacheEntry.getUri());
 
 				// Add cached response to work
 				Response cachedResponse = getResponseFromCacheEntry(cacheEntry);
@@ -797,15 +801,20 @@ public final class CommManager {
 
 						// Check the response headers for a caching TTL
 						Long ttl = response.getTtlFromHeaders();
-						if(ttl == null) { ttl = Long.MAX_VALUE; }  // Long.MAX_VALUE indicates never expiring
+						if(ttl == null) { ttl = Long.MAX_VALUE; }  // NULL and Long.MAX_VALUE both indicate never expiring
 
 						// Check the response headers for an ETag value
 						String eTag = response.getETagFromHeaders();
+						
+						// Check the response headers for a "max-stale" value
+						Long maxStale = response.getMaxStaleFromHeaders();
+						if(maxStale == null) { maxStale = 0L; }  // NULL and zero both indicate never use expired
 
 						CommManager.this._cacheProvider.add(
 								Integer.toString(this._work.getRequest().getId()), 
 								responseObjBytes, 
 								ttl, 
+								maxStale, 
 								eTag, 
 								this._work.getRequest().getUri());
 						if(_logger != null) { _logger.debug("%1$s Response for request %2$d added to cache", this._logPrefix, this._work.getRequest().getId()); }

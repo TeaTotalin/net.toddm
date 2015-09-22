@@ -60,10 +60,10 @@ public class MemoryCacheProvider implements CacheProvider {
 
 	/** {@inheritDoc} */
 	@Override
-	public boolean add(String key, String value, long ttl, String eTag, URI sourceUri) {
+	public boolean add(String key, String value, long ttl, long maxStale, String eTag, URI sourceUri) {
 
 		// The constructor used in the line below does argument validation
-		this._keyToEntry.put(this.getLookupKey(key), new CacheEntry(key, value, ttl, eTag, sourceUri));
+		this._keyToEntry.put(this.getLookupKey(key), new CacheEntry(key, value, ttl, maxStale, eTag, sourceUri));
 		if(this._logger != null) {
 			this._logger.debug("Cache entry added [key:%1$s ttl:%2$d eTag:%3$s sourceUri:%4$s]", key, ttl, eTag, sourceUri);
 		}
@@ -72,10 +72,10 @@ public class MemoryCacheProvider implements CacheProvider {
 
 	/** {@inheritDoc} */
 	@Override
-	public boolean add(String key, byte[] value, long ttl, String eTag, URI sourceUri) {
+	public boolean add(String key, byte[] value, long ttl, long maxStale, String eTag, URI sourceUri) {
 
 		// The constructor used in the line below does argument validation
-		this._keyToEntry.put(this.getLookupKey(key), new CacheEntry(key, value, ttl, eTag, sourceUri));
+		this._keyToEntry.put(this.getLookupKey(key), new CacheEntry(key, value, ttl, maxStale, eTag, sourceUri));
 		if(this._logger != null) {
 			this._logger.debug("Cache entry added [key:%1$s ttl:%2$d eTag:%3$s sourceUri:%4$s]", key, ttl, eTag, sourceUri);
 		}

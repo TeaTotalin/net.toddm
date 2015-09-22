@@ -31,6 +31,7 @@ public class CacheEntry {
 	private final byte[] _valueBytes;
 	private final Long _ttl;
 	private final String _etag;
+	private final Long _maxStale;
 	private final URI _sourceUri;
 	private final Long _timestampCreated;
 	private final Long _timestampModified;
@@ -42,10 +43,11 @@ public class CacheEntry {
 	 * @param key A unique key value for this cache entry.
 	 * @param value The value of this cache entry (can be NULL).
 	 * @param ttl The Time To Live (TTL) of this cache entry. Any value less than 1 will result in an entry that is always stale.
+	 * @param maxStale The maximum amount of time, in milliseconds, that use of the entry should continue after it has expired.
 	 * @param eTag An optional entity tag value. This can be NULL if your cache does not make use of ETags.
 	 * @param sourceUri An optional source URI. This can be NULL if you do not make use of URIs.
 	 */
-	public CacheEntry(String key, String value, long ttl, String eTag, URI sourceUri) {
+	public CacheEntry(String key, String value, long ttl, long maxStale, String eTag, URI sourceUri) {
 
 		// Validate parameters
 		if((key == null) || (key.length() <= 0)) { throw(new IllegalArgumentException("'key' can not be NULL or empty")); }
@@ -55,6 +57,7 @@ public class CacheEntry {
 		this._valueBytes = null;
 		this._ttl = ttl;
 		this._etag = eTag;
+		this._maxStale = maxStale;
 		this._sourceUri = sourceUri;
 		this._timestampCreated = System.currentTimeMillis();
 		this._timestampModified = this._timestampCreated;
@@ -67,10 +70,11 @@ public class CacheEntry {
 	 * @param key A unique key value for this cache entry.
 	 * @param value The value of this cache entry (can be NULL).
 	 * @param ttl The Time To Live (TTL) of this cache entry. Any value less than 1 will result in an entry that is always stale.
+	 * @param maxStale The maximum amount of time, in milliseconds, that use of the entry should continue after it has expired.
 	 * @param eTag An optional entity tag value. This can be NULL if your cache does not make use of ETags.
 	 * @param sourceUri An optional source URI. This can be NULL if you do not make use of URIs.
 	 */
-	public CacheEntry(String key, byte[] value, long ttl, String eTag, URI sourceUri) {
+	public CacheEntry(String key, byte[] value, long ttl, long maxStale, String eTag, URI sourceUri) {
 
 		// Validate parameters
 		if((key == null) || (key.length() <= 0)) { throw(new IllegalArgumentException("'key' can not be NULL or empty")); }
@@ -80,6 +84,7 @@ public class CacheEntry {
 		this._valueBytes = value;
 		this._ttl = ttl;
 		this._etag = eTag;
+		this._maxStale = maxStale;
 		this._sourceUri = sourceUri;
 		this._timestampCreated = System.currentTimeMillis();
 		this._timestampModified = this._timestampCreated;
@@ -93,12 +98,13 @@ public class CacheEntry {
 	 * @param valueString The string value of this cache entry (can be NULL).
 	 * @param valueBytes The bytes value of this cache entry (can be NULL).
 	 * @param ttl The Time To Live (TTL) of this cache entry. Any value less than 1 will result in an entry that is always stale.
+	 * @param maxStale The maximum amount of time, in milliseconds, that use of the entry should continue after it has expired.
 	 * @param eTag An optional entity tag value. This can be NULL if your cache does not make use of ETags.
 	 * @param sourceUri An optional source URI. This can be NULL if you do not make use of URIs.
 	 * @param timestampCreated The epoch representation of the creation timestamp for this cache entry.
 	 * @param timestampModified The epoch representation of the creation timestamp for this cache entry.
 	 */
-	public CacheEntry(String key, String valueString, byte[] valueBytes, long ttl, String eTag, URI sourceUri, long timestampCreated, long timestampModified) {
+	public CacheEntry(String key, String valueString, byte[] valueBytes, long ttl, long maxStale, String eTag, URI sourceUri, long timestampCreated, long timestampModified) {
 
 		// Validate parameters
 		if((key == null) || (key.length() <= 0)) { throw(new IllegalArgumentException("'key' can not be NULL or empty")); }
@@ -115,6 +121,7 @@ public class CacheEntry {
 		this._valueBytes = valueBytes;
 		this._ttl = ttl;
 		this._etag = eTag;
+		this._maxStale = maxStale;
 		this._sourceUri = sourceUri;
 		this._timestampCreated = timestampCreated;
 		this._timestampModified = timestampModified;
@@ -135,6 +142,9 @@ public class CacheEntry {
 	/** Returns the ETag for this cache entry if it has one. */
 	public String getEtag() { return(this._etag); }
 
+	/** Returns the "max stale" value for this cache entry. */
+	public Long getMaxStale() { return(this._maxStale); }
+
 	/** Returns the source URI for this cache entry if it has one. */
 	public URI getUri() { return(this._sourceUri); }
 
@@ -149,13 +159,43 @@ public class CacheEntry {
 	 * time, this method will return <b>true</b>, otherwise <b>false</b> is returned.
 	 */
 	public boolean hasExpired() {
-		if((this.getTtl() == null) || (this.getTtl() == Long.MAX_VALUE)) {
-			// Max value and NULL both indicate never expiring, but we don't want to break below
-			return(false);
-		}
-		long now = System.currentTimeMillis();
+
+		// NULL indicates never expiring
+		if(this.getTtl() == null) { return(false); }
+
+		// Check if we have overflowed long max value and if we have default to max value
 		long expiresOn = this.getTimestampCreated() + this.getTtl();
+		if(expiresOn < this.getTimestampCreated()) {
+			expiresOn = Long.MAX_VALUE;
+		}
+
+		long now = System.currentTimeMillis();
 		return(expiresOn < now);
+	}
+
+	/**
+	 * If this {@link CacheEntry} instance should no longer be used, based on it's TTL value, max-stale 
+	 * value, and creation time, this method will return <b>true</b>, otherwise <b>false</b> is returned.
+	 * <p>
+	 * Even an expired cache entry can still be considered usable as long as it's age does not yet 
+	 * exceed it's TTL value plus it's max-stale value.
+	 */
+	public boolean hasExceededStaleUse() {
+
+		// If we have not yet expired then we can not have exceeded stale use
+		if(!this.hasExpired()) { return(false); }
+
+		// If we have expired and have no stale use then we have exceeded
+		if(this.getMaxStale() == null) { return(true); }
+
+		// Check if we have overflowed long max value and if we have default to max value
+		long staleExpiresOn = this.getTimestampCreated() + this.getTtl() + this.getMaxStale();
+		if(staleExpiresOn < this.getTimestampCreated()) {
+			staleExpiresOn = Long.MAX_VALUE;
+		}
+
+		long now = System.currentTimeMillis();
+		return(staleExpiresOn < now);
 	}
 
 }

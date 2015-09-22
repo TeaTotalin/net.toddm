@@ -28,11 +28,12 @@ public interface CacheProvider {
 	 * @param key The unique key of the cache entry.
 	 * @param value The value of the cache entry.
 	 * @param ttl The Time To Live (TTL) of the cache entry.
+	 * @param maxStale The maximum amount of time, in milliseconds, that use of the entry should continue after it has expired.
 	 * @param eTag An entity tag value for the cache entry.
 	 * @param sourceUri A source URI for the cache entry.
 	 * @return <b>true</b> if the add or update operation was successful, <b>false</b> otherwise.
 	 */
-	public boolean add(String key, String value, long ttl, String eTag, URI sourceUri);
+	public boolean add(String key, String value, long ttl, long maxStale, String eTag, URI sourceUri);
 
 	/**
 	 * Adds an entry to the cache if one with the given key does not already exist. If there is a preexisting entry with the given key 
@@ -41,11 +42,12 @@ public interface CacheProvider {
 	 * @param key The unique key of the cache entry.
 	 * @param value The value of the cache entry.
 	 * @param ttl The Time To Live (TTL) of the cache entry.
+	 * @param maxStale The maximum amount of time, in milliseconds, that use of the entry should continue after it has expired.
 	 * @param eTag An entity tag value for the cache entry.
 	 * @param sourceUri A source URI for the cache entry.
 	 * @return <b>true</b> if the add or update operation was successful, <b>false</b> otherwise.
 	 */
-	public boolean add(String key, byte[] value, long ttl, String eTag, URI sourceUri);
+	public boolean add(String key, byte[] value, long ttl, long maxStale, String eTag, URI sourceUri);
 
 	/**
 	 * Returns the {@link CacheEntry} with the given key. If no entry is found for the given key then <b>null</b> is returned.
