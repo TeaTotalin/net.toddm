@@ -26,6 +26,28 @@ import java.net.URI;
  */
 public class CacheEntry {
 
+	/** An enumeration of all possible caching priorities a {@link CacheEntry} instance can have. */
+	public enum Priority {
+
+		/** Indicates to a caching provider that the related data should not be cached. */
+		DO_NOT_CACHE,
+		
+		/**
+		 * Indicates to a caching provider that the related data has a low caching priority. 
+		 * Depending on provider implementation, entries with this priority level may be more likely to be evicted from the cache when LRU thresholds are reached.
+		 */
+		LOW,
+		
+		/** Indicates to a caching provider that the related data has a normal (most common) caching priority. */
+		MEDIUM,
+		
+		/**
+		 * Indicates to a caching provider that the related data has a high caching priority.
+		 * Depending on provider implementation, entries with this priority level are less likely to be evicted from the cache when LRU thresholds are reached.
+		 */
+		HIGH
+	}
+
 	private final String _key;
 	private final String _valueString;
 	private final byte[] _valueBytes;
@@ -35,6 +57,7 @@ public class CacheEntry {
 	private final URI _sourceUri;
 	private final Long _timestampCreated;
 	private final Long _timestampModified;
+	private final Priority _priority;
 
 	/**
 	 * Creates an instance of {@link CacheEntry} from the given values.
@@ -46,11 +69,13 @@ public class CacheEntry {
 	 * @param maxStale The maximum amount of time, in milliseconds, that use of the entry should continue after it has expired.
 	 * @param eTag An optional entity tag value. This can be NULL if your cache does not make use of ETags.
 	 * @param sourceUri An optional source URI. This can be NULL if you do not make use of URIs.
+	 * @param priority An indication of relative priority for this cache entry. Depending on implementation, cache providers may use this as a hint when evicting records.
 	 */
-	public CacheEntry(String key, String value, long ttl, long maxStale, String eTag, URI sourceUri) {
+	public CacheEntry(String key, String value, long ttl, long maxStale, String eTag, URI sourceUri, Priority priority) {
 
 		// Validate parameters
 		if((key == null) || (key.length() <= 0)) { throw(new IllegalArgumentException("'key' can not be NULL or empty")); }
+		if(priority == null) { throw(new IllegalArgumentException("'priority' can not be NULL")); }
 
 		this._key = key;
 		this._valueString = value;
@@ -61,6 +86,7 @@ public class CacheEntry {
 		this._sourceUri = sourceUri;
 		this._timestampCreated = System.currentTimeMillis();
 		this._timestampModified = this._timestampCreated;
+		this._priority = priority;
 	}
 
 	/**
@@ -73,11 +99,13 @@ public class CacheEntry {
 	 * @param maxStale The maximum amount of time, in milliseconds, that use of the entry should continue after it has expired.
 	 * @param eTag An optional entity tag value. This can be NULL if your cache does not make use of ETags.
 	 * @param sourceUri An optional source URI. This can be NULL if you do not make use of URIs.
+	 * @param priority An indication of relative priority for this cache entry. Depending on implementation, cache providers may use this as a hint when evicting records.
 	 */
-	public CacheEntry(String key, byte[] value, long ttl, long maxStale, String eTag, URI sourceUri) {
+	public CacheEntry(String key, byte[] value, long ttl, long maxStale, String eTag, URI sourceUri, Priority priority) {
 
 		// Validate parameters
 		if((key == null) || (key.length() <= 0)) { throw(new IllegalArgumentException("'key' can not be NULL or empty")); }
+		if(priority == null) { throw(new IllegalArgumentException("'priority' can not be NULL")); }
 
 		this._key = key;
 		this._valueString = null;
@@ -88,6 +116,7 @@ public class CacheEntry {
 		this._sourceUri = sourceUri;
 		this._timestampCreated = System.currentTimeMillis();
 		this._timestampModified = this._timestampCreated;
+		this._priority = priority;
 	}
 
 	/**
@@ -103,8 +132,9 @@ public class CacheEntry {
 	 * @param sourceUri An optional source URI. This can be NULL if you do not make use of URIs.
 	 * @param timestampCreated The epoch representation of the creation timestamp for this cache entry.
 	 * @param timestampModified The epoch representation of the creation timestamp for this cache entry.
+	 * @param priority An indication of relative priority for this cache entry. Depending on implementation, cache providers may use this as a hint when evicting records.
 	 */
-	public CacheEntry(String key, String valueString, byte[] valueBytes, long ttl, long maxStale, String eTag, URI sourceUri, long timestampCreated, long timestampModified) {
+	public CacheEntry(String key, String valueString, byte[] valueBytes, long ttl, long maxStale, String eTag, URI sourceUri, long timestampCreated, long timestampModified, Priority priority) {
 
 		// Validate parameters
 		if((key == null) || (key.length() <= 0)) { throw(new IllegalArgumentException("'key' can not be NULL or empty")); }
@@ -115,6 +145,7 @@ public class CacheEntry {
 
 		if(timestampCreated > System.currentTimeMillis()) { throw(new IllegalArgumentException("'timestampCreated' should not be in the future")); }
 		if(timestampModified > System.currentTimeMillis()) { throw(new IllegalArgumentException("'timestampModified' should not be in the future")); }
+		if(priority == null) { throw(new IllegalArgumentException("'priority' can not be NULL")); }
 
 		this._key = key;
 		this._valueString = valueString;
@@ -125,6 +156,7 @@ public class CacheEntry {
 		this._sourceUri = sourceUri;
 		this._timestampCreated = timestampCreated;
 		this._timestampModified = timestampModified;
+		this._priority = priority;
 	}
 
 	/** Returns the unique key for this cache entry. */
@@ -153,6 +185,13 @@ public class CacheEntry {
 
 	/** Returns an epoch representation of the most recent time that this cache entry was updated. */
 	public Long getTimestampModified() { return(this._timestampModified); }
+
+	/**
+	 * Returns the caching priority value for this cache entry.
+	 * The meaning of this value may vary based on cache provider implementation.
+	 * Cache providers may use this value as a hint when evicting records.
+	 */
+	public Priority getPriority() { return(this._priority); }
 
 	/**
 	 * If this {@link CacheEntry} instance has expired, based on it's TTL value and creation 

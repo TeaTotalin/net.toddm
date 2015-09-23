@@ -18,6 +18,7 @@ package net.toddm.comm.tests;
 import java.net.URI;
 import java.nio.charset.Charset;
 
+import net.toddm.cache.CacheEntry;
 import net.toddm.cache.DefaultLogger;
 import net.toddm.comm.CommManager;
 import net.toddm.comm.Response;
@@ -32,7 +33,7 @@ public class TestGZIP extends TestCase {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
-		Work work = commManager.enqueueWork(new URI("http://httpbin.org/gzip"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/gzip"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CacheEntry.Priority.DO_NOT_CACHE);
         assertNotNull(work);
 
         Response response = work.get();

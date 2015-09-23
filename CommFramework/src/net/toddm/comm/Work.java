@@ -59,7 +59,8 @@ public class Work implements Future<Response> {
 	}
 
     private final Request _request;
-    private final Priority _priority;
+    private final Priority _requestPriority;
+    private final CacheEntry.Priority _cachingPriority;
     private final ConcurrentLinkedQueue<FutureTask<Response>> _futureTasks = new ConcurrentLinkedQueue<FutureTask<Response>>();
 	private final LoggingProvider _logger;
 
@@ -73,31 +74,41 @@ public class Work implements Future<Response> {
 			Request.RequestMethod method, 
 			byte[] postData, 
 			Map<String, String> headers, 
-			StartingPriority priority, 
-			boolean cachingAllowed, 
+			StartingPriority requestPriority, 
+			CacheEntry.Priority cachingPriority, 
 			LoggingProvider loggingProvider)
 	{
 
 		// Validate parameters
 		if(uri == null) { throw(new IllegalArgumentException("'uri' can not be NULL")); }
 		if(method == null) { throw(new IllegalArgumentException("'method' can not be NULL")); }
-		if(priority == null) { throw(new IllegalArgumentException("'priority' can not be NULL")); }
+		if(requestPriority == null) { throw(new IllegalArgumentException("'requestPriority' can not be NULL")); }
+		if(cachingPriority == null) { throw(new IllegalArgumentException("'cachingPriority' can not be NULL")); }
 		if((postData != null) && (!Request.RequestMethod.POST.equals(method))) {
 			throw(new IllegalArgumentException("'method' must be 'POST' when 'postData' is provided"));
 		}
 
 		// Set our data members
 		this._state = Status.CREATED;
-		this._request = new Request(uri, method, postData, headers, cachingAllowed);
-		this._priority = new Priority(this, priority);
+		this._request = new Request(uri, method, postData, headers);
+		this._requestPriority = new Priority(this, requestPriority);
+		this._cachingPriority = cachingPriority;
 		this._logger = loggingProvider;
 	}
 
 	/** Returns the {@link Request} instance associated with this {@link Work} instance. */
 	public Request getRequest() { return(this._request); }
 
-	/** Returns the {@link Priority} of this {@link Work} instance. */
-	public Priority getPriority() { return(this._priority); }
+	/** Returns the request {@link Priority} of this {@link Work} instance. */
+	public Priority getRequestPriority() { return(this._requestPriority); }
+
+	/** Returns the caching {@link Priority} of this {@link Work} instance. */
+	public CacheEntry.Priority getCachingPriority() { return(this._cachingPriority); }
+
+	/** Returns TRUE if the result of this work should participate in caching, FALSE otherwise. */
+	public boolean shouldCache() {
+		return(!CacheEntry.Priority.DO_NOT_CACHE.equals(this._cachingPriority));
+	}
 
 	/** Returns the current state of this {@link Work} instance */
 	public Status getState() { return(this._state); }

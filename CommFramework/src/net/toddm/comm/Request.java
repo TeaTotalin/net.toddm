@@ -50,7 +50,6 @@ public class Request {
 	private final Map<String, String> _headers;
 	private final Map<String, List<String>> _queryParameters;
 	private final Integer _id;
-	private final boolean _cachingAllowed;
 
 	private int _redirectCount = 0;
 	private int _retryCountFromFailure = 0;
@@ -63,14 +62,12 @@ public class Request {
 	 * @param method The HTTP method for the request ({@link RequestMethod}).
 	 * @param postData <b>OPTIONAL</b>. Can be NULL. A map of data to be sent as the POST body content. The values should NOT yet be encoded.
 	 * @param headers A {@link Map} of any HTTP header values that should be sent as part of the request.
-	 * @param cachingAllowed If set, the CommManager is allowed to cache the results of this request.
 	 */
 	protected Request(
 			URI uri, 
 			RequestMethod method, 
 			byte[] postData, 
-			Map<String, String> headers, 
-			boolean cachingAllowed) 
+			Map<String, String> headers) 
 	{
 
 		// Validate parameters
@@ -84,7 +81,6 @@ public class Request {
 		URI normalizedUri = uri.normalize();
 		this._method = method;
 		this._normalizedEndPoints.addFirst(normalizedUri);
-		this._cachingAllowed = cachingAllowed;
 
 		// Used for hash code, ID, etc. Use extreme caution if changing.
 		this._queryParameters = Request.parseQueryParameters(normalizedUri, "UTF-8");
@@ -108,11 +104,6 @@ public class Request {
 	/** Returns the headers of this {@link Request} instance or <b>null</b> if there are none. */
 	public Map<String, String> getHeaders() {
 		return(this._headers);
-	}
-
-	/** If <b>true</b> the results of this {@link Request} instance can participate in caching. */
-	public boolean isCachingAllowed() {
-		return(this._cachingAllowed);
 	}
 
 	/** Returns the most recent URI to be used for this {@link Request} instance. */

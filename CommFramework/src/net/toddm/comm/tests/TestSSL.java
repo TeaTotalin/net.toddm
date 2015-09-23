@@ -18,6 +18,7 @@ package net.toddm.comm.tests;
 import java.net.URI;
 import java.util.HashMap;
 
+import net.toddm.cache.CacheEntry;
 import net.toddm.cache.DefaultLogger;
 import net.toddm.comm.CommManager;
 import net.toddm.comm.DefaultConfigurationProvider;
@@ -34,7 +35,7 @@ public class TestSSL extends TestCase {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
-		Work work = commManager.enqueueWork(new URI("https://httpbin.org/status/200"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
+		Work work = commManager.enqueueWork(new URI("https://httpbin.org/status/200"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CacheEntry.Priority.DO_NOT_CACHE);
         assertNotNull(work);
 
         Response response = work.get();
@@ -57,7 +58,7 @@ public class TestSSL extends TestCase {
 				.setLoggingProvider(new DefaultLogger())
 				.create();
 
-		Work work = commManagerNoCerts.enqueueWork(new URI("https://testssl-expire.disig.sk/index.en.html"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
+		Work work = commManagerNoCerts.enqueueWork(new URI("https://testssl-expire.disig.sk/index.en.html"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CacheEntry.Priority.DO_NOT_CACHE);
         assertNotNull(work);
         Response response = work.get();
         assertNotNull(response);
@@ -74,7 +75,7 @@ public class TestSSL extends TestCase {
 				.setLoggingProvider(new DefaultLogger())
 				.create();
 
-		work = commManagerWithCerts.enqueueWork(new URI("https://testssl-expire.disig.sk/index.en.html"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, false);
+		work = commManagerWithCerts.enqueueWork(new URI("https://testssl-expire.disig.sk/index.en.html"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CacheEntry.Priority.DO_NOT_CACHE);
         assertNotNull(work);
         response = work.get();
         assertNull(response);

@@ -155,18 +155,19 @@ public final class CommManager {
 	 * @param method The HTTP method of the request to work on.
 	 * @param postData <b>[OPTIONAL]</b> Can be NULL. The POST data of the request to work on.
 	 * @param headers <b>[OPTIONAL]</b> Can be NULL. The request headers of the request to work on.
-	 * @param cachingAllowed If set, the CommManager is allowed to cache the results of this request.
+	 * @param requestPriority The priority of this request work relative to other request work.
+	 * @param cachingPriority A hint to the caching provider (if there is one) of the relative priority of the cache entry generated for this response.
 	 */
 	public Work enqueueWork(
 			URI uri, 
 			Request.RequestMethod method, 
 			byte[] postData, 
 			Map<String, String> headers, 
-			StartingPriority priority, 
-			boolean cachingAllowed) 
+			StartingPriority requestPriority, 
+			CacheEntry.Priority cachingPriority) 
 	{
 		// This constructor will validate all the arguments
-		Work newWork = new Work(uri, method, postData, headers, priority, cachingAllowed, this._logger);
+		Work newWork = new Work(uri, method, postData, headers, requestPriority, cachingPriority, this._logger);
 		Work resultWork = null;
 		if(this._logger != null) { this._logger.debug("[thread:%1$d] enqueueWork() start", Thread.currentThread().getId()); }
 
@@ -200,7 +201,7 @@ public final class CommManager {
 
 				// Check cache to see if we already have usable results for this request
 				Response cachedResponse = null;
-				if((cachingAllowed) && (this._cacheProvider != null)) {
+				if((!CacheEntry.Priority.DO_NOT_CACHE.equals(cachingPriority)) && (this._cacheProvider != null)) {
 
 					// If we have a cached response for the request add it to the work, this will allow us to properly handle eTag and 304 response work later
 					CacheEntry cacheEntry = this._cacheProvider.get(Integer.toString(newWork.getRequest().getId()), true);
@@ -443,7 +444,7 @@ public final class CommManager {
 						while((_activeWork.size() < _maxSimultaneousRequests) && (_queuedWork.size() > 0)) {
 
 							// Update request priorities as needed using the provided PriorityManagmentProvider implementation
-							for(Work work : _queuedWork) { CommManager.this._priorityManagmentProvider.promotePriority(work.getPriority()); }
+							for(Work work : _queuedWork) { CommManager.this._priorityManagmentProvider.promotePriority(work.getRequestPriority()); }
 
 							// Sort the current priority queue using the provided PriorityManagmentProvider implementation and get the next item
 							Collections.sort(_queuedWork, CommManager.this._workComparator);
@@ -484,7 +485,7 @@ public final class CommManager {
 		public int compare(Work lhs, Work rhs) {
 			if(lhs == null) { throw(new IllegalArgumentException("'lhs' can not be NULL")); }
 			if(rhs == null) { throw(new IllegalArgumentException("'rhs' can not be NULL")); }
-			return(CommManager.this._priorityManagmentProvider.getPriorityComparator().compare(lhs.getPriority(), rhs.getPriority()));
+			return(CommManager.this._priorityManagmentProvider.getPriorityComparator().compare(lhs.getRequestPriority(), rhs.getRequestPriority()));
 		}
 	};
 
@@ -711,6 +712,7 @@ public final class CommManager {
 		 * This can potentially result in work being queued for the future, cache entries being updated, etc.
 		 * <p>
 		 * @param response The {@link Response} that resulted from attempting the current work.
+		 * @param urlConnection The {@link HttpURLConnection} instance used for the network request.
 		 */
 		private void handleWorkUpdatesOnResponse(Response response, HttpURLConnection urlConnection) {
 
@@ -751,7 +753,7 @@ public final class CommManager {
 					_workManagmentLock.notify();
 				}
 
-			} else if(	(this._work.getRequest().isCachingAllowed()) && 
+			} else if(	(this._work.shouldCache()) && 
 						(this._work.getCachedResponse() != null) && 
 						(CommManager.this._cacheProvider != null) && 
 						(response.getResponseCode() == 304)) 
@@ -776,7 +778,7 @@ public final class CommManager {
 				// Update the cache entry. We will update using the cache entry instance that we saved on the 
 				// Work object. The entry in the cache may have already been removed by LRU enforcement, etc.
 				CommManager.this._cacheProvider.remove(cacheEntry.getKey());
-				CommManager.this._cacheProvider.add(cacheEntry.getKey(), cacheEntry.getBytesValue(), ttl, maxStale, eTag, cacheEntry.getUri());
+				CommManager.this._cacheProvider.add(cacheEntry.getKey(), cacheEntry.getBytesValue(), ttl, maxStale, eTag, cacheEntry.getUri(), cacheEntry.getPriority());
 
 				// Add cached response to work
 				Response cachedResponse = getResponseFromCacheEntry(cacheEntry);
@@ -785,7 +787,7 @@ public final class CommManager {
 				this._work.setState(Status.COMPLETED);
 				if(_logger != null) { _logger.info("[thread:%1$d] handleWorkUpdatesOnResponse() Returning cached results post 304 [id:%2$d]", Thread.currentThread().getId(), this._work.getId()); }
 
-			} else if((this._work.getRequest().isCachingAllowed()) && (CommManager.this._cacheProvider != null) && (response.isSuccessful())) {
+			} else if((this._work.shouldCache()) && (CommManager.this._cacheProvider != null) && (response.isSuccessful())) {
 
 				// ************ CACHE ADD ************
 				byte[] responseObjBytes = null;
@@ -816,7 +818,8 @@ public final class CommManager {
 								ttl, 
 								maxStale, 
 								eTag, 
-								this._work.getRequest().getUri());
+								this._work.getRequest().getUri(),
+								this._work.getCachingPriority());
 						if(_logger != null) { _logger.debug("%1$s Response for request %2$d added to cache", this._logPrefix, this._work.getRequest().getId()); }
 
 						// We will go ahead and enforce LRU here as we may have just added a new cache entry

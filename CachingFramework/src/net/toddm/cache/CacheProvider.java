@@ -31,9 +31,10 @@ public interface CacheProvider {
 	 * @param maxStale The maximum amount of time, in milliseconds, that use of the entry should continue after it has expired.
 	 * @param eTag An entity tag value for the cache entry.
 	 * @param sourceUri A source URI for the cache entry.
+	 * @param priority An indication of relative priority for this cache entry. Depending on implementation, cache providers may use this as a hint when evicting records.
 	 * @return <b>true</b> if the add or update operation was successful, <b>false</b> otherwise.
 	 */
-	public boolean add(String key, String value, long ttl, long maxStale, String eTag, URI sourceUri);
+	public boolean add(String key, String value, long ttl, long maxStale, String eTag, URI sourceUri, CacheEntry.Priority priority);
 
 	/**
 	 * Adds an entry to the cache if one with the given key does not already exist. If there is a preexisting entry with the given key 
@@ -45,9 +46,10 @@ public interface CacheProvider {
 	 * @param maxStale The maximum amount of time, in milliseconds, that use of the entry should continue after it has expired.
 	 * @param eTag An entity tag value for the cache entry.
 	 * @param sourceUri A source URI for the cache entry.
+	 * @param priority An indication of relative priority for this cache entry. Depending on implementation, cache providers may use this as a hint when evicting records.
 	 * @return <b>true</b> if the add or update operation was successful, <b>false</b> otherwise.
 	 */
-	public boolean add(String key, byte[] value, long ttl, long maxStale, String eTag, URI sourceUri);
+	public boolean add(String key, byte[] value, long ttl, long maxStale, String eTag, URI sourceUri, CacheEntry.Priority priority);
 
 	/**
 	 * Returns the {@link CacheEntry} with the given key. If no entry is found for the given key then <b>null</b> is returned.

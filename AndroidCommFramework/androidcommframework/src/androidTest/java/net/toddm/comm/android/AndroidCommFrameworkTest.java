@@ -20,6 +20,7 @@ import android.test.ApplicationTestCase;
 
 import junit.framework.Assert;
 
+import net.toddm.cache.CacheEntry;
 import net.toddm.cache.DefaultLogger;
 import net.toddm.cache.android.DBCacheProvider;
 
@@ -46,7 +47,7 @@ public class AndroidCommFrameworkTest extends ApplicationTestCase<Application> {
     cache.removeAll();
     Assert.assertEquals(0, cache.size(true));
     Assert.assertEquals(0, cache.size(false));
-    cache.add("test_key", "test_value", 100, 0, null, null);
+    cache.add("test_key", "test_value", 100, 0, null, null, CacheEntry.Priority.MEDIUM);
     Assert.assertEquals(1, cache.size(true));
     Assert.assertEquals(1, cache.size(false));
     Thread.sleep(101);
