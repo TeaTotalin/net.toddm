@@ -88,32 +88,32 @@ public final class CommManager {
 		if(this._configurationProvider.contains(DefaultConfigurationProvider.KeyRedirectLimit)) {
 			this._redirectLimit = this._configurationProvider.getInt(DefaultConfigurationProvider.KeyRedirectLimit);
 		} else {
-			this._redirectLimit = 3;
+			this._redirectLimit = DefaultConfigurationProvider.ValueRedirectLimit;
 		}
 		if(this._configurationProvider.contains(DefaultConfigurationProvider.KeyMaxSimultaneousRequests)) {
 			this._maxSimultaneousRequests = this._configurationProvider.getInt(DefaultConfigurationProvider.KeyMaxSimultaneousRequests);
 		} else {
-			this._maxSimultaneousRequests = 2;
+			this._maxSimultaneousRequests = DefaultConfigurationProvider.ValueMaxSimultaneousRequests;
 		}
 		if(this._configurationProvider.contains(DefaultConfigurationProvider.KeyConnectTimeoutMilliseconds)) {
 			this._connectTimeoutMilliseconds = this._configurationProvider.getInt(DefaultConfigurationProvider.KeyConnectTimeoutMilliseconds);
 		} else {
-			this._connectTimeoutMilliseconds = 30000;
+			this._connectTimeoutMilliseconds = DefaultConfigurationProvider.ValueConnectTimeoutMilliseconds;
 		}
 		if(this._configurationProvider.contains(DefaultConfigurationProvider.KeyReadTimeoutMilliseconds)) {
 			this._readTimeoutMilliseconds = this._configurationProvider.getInt(DefaultConfigurationProvider.KeyReadTimeoutMilliseconds);
 		} else {
-			this._readTimeoutMilliseconds = 30000;
+			this._readTimeoutMilliseconds = DefaultConfigurationProvider.ValueReadTimeoutMilliseconds;
 		}
 		if(this._configurationProvider.contains(DefaultConfigurationProvider.KeyDisableSSLCertChecking)) {
 			this._disableSSLCertChecking = this._configurationProvider.getBoolean(DefaultConfigurationProvider.KeyDisableSSLCertChecking);
 		} else {
-			this._disableSSLCertChecking = false;
+			this._disableSSLCertChecking = DefaultConfigurationProvider.ValueDisableSSLCertChecking;
 		}
 		if(this._configurationProvider.contains(DefaultConfigurationProvider.KeyUseBuiltInHttpURLConnectionRedirectionSupport)) {
 			this._useBuiltInHttpURLConnectionRedirectionSupport = this._configurationProvider.getBoolean(DefaultConfigurationProvider.KeyUseBuiltInHttpURLConnectionRedirectionSupport);
 		} else {
-			this._useBuiltInHttpURLConnectionRedirectionSupport = false;
+			this._useBuiltInHttpURLConnectionRedirectionSupport = DefaultConfigurationProvider.ValueUseBuiltInHttpURLConnectionRedirectionSupport;
 		}
 
 		this._requestWorkExecutorService = Executors.newFixedThreadPool(this._maxSimultaneousRequests);

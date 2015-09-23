@@ -30,18 +30,28 @@ public class DefaultConfigurationProvider extends MapConfigurationProvider {
 	//***************** Supported config keys
 	/** The value mapped to this key defines the maximum number of unique redirects a request can result in before giving up. */
 	public static final String KeyRedirectLimit = "redirect_limit";
+	/** The default value for the maximum number of unique redirects a request can result in before giving up. */
+	public static final int ValueRedirectLimit = 3;
 
 	/** The value mapped to this key defines the maximum number of simultaneous requests that the comm framework will attempt to process at the same time. */
 	public static final String KeyMaxSimultaneousRequests = "max_simultaneous_requests";
+	/** The default value for the maximum number of simultaneous requests that the comm framework will attempt to process at the same time. */
+	public static final int ValueMaxSimultaneousRequests = 2;
 
 	/** The value mapped to this key defines the timeout value when waiting for connections to be established. */
 	public static final String KeyConnectTimeoutMilliseconds = "connect_timeout_milliseconds";
+	/** The default value for the timeout value when waiting for connections to be established. */
+	public static final int ValueConnectTimeoutMilliseconds = 30000;
 
 	/** The value mapped to this key defines the timeout value when waiting for read responses. */
 	public static final String KeyReadTimeoutMilliseconds = "read_timeout_milliseconds";
+	/** The default value for the timeout value when waiting for read responses. */
+	public static final int ValueReadTimeoutMilliseconds = 30000;
 
 	/** If set to <b>true</b> invalid SSL certificates are accepted. In general this should never be done accept for development and testing purposes. */
 	public static final String KeyDisableSSLCertChecking = "disable_ssl_cert_checking";
+	/** The default value for if invalid SSL certificates are accepted. */
+	public static final boolean ValueDisableSSLCertChecking = false;
 
 	/**
 	 * The Comm Framework provides support for request redirection based on response (301, 302, 303). Depending on Java version, platform, etc. 
@@ -49,16 +59,18 @@ public class DefaultConfigurationProvider extends MapConfigurationProvider {
 	 * set to <b>false</b> (the default) then redirection is provided by the Comm Framework, otherwise redirection is provided by java.net.
 	 */
 	public static final String KeyUseBuiltInHttpURLConnectionRedirectionSupport = "use_built_in_http_url_connection_redirection_support";
+	/** The default value for what request redirection support to use. */
+	public static final boolean ValueUseBuiltInHttpURLConnectionRedirectionSupport = false;
 	//***************** Supported config keys
 
 	private static final Map<String, Object> _DefaultConfig = new HashMap<String, Object>();
 	static {
-		_DefaultConfig.put(KeyRedirectLimit, 3);
-		_DefaultConfig.put(KeyMaxSimultaneousRequests, 2);
-		_DefaultConfig.put(KeyConnectTimeoutMilliseconds, 30000);
-		_DefaultConfig.put(KeyReadTimeoutMilliseconds, 30000);
-		_DefaultConfig.put(KeyDisableSSLCertChecking, false);
-		_DefaultConfig.put(KeyUseBuiltInHttpURLConnectionRedirectionSupport, false);
+		_DefaultConfig.put(KeyRedirectLimit, ValueRedirectLimit);
+		_DefaultConfig.put(KeyMaxSimultaneousRequests, ValueMaxSimultaneousRequests);
+		_DefaultConfig.put(KeyConnectTimeoutMilliseconds, ValueConnectTimeoutMilliseconds);
+		_DefaultConfig.put(KeyReadTimeoutMilliseconds, ValueReadTimeoutMilliseconds);
+		_DefaultConfig.put(KeyDisableSSLCertChecking, ValueDisableSSLCertChecking);
+		_DefaultConfig.put(KeyUseBuiltInHttpURLConnectionRedirectionSupport, ValueUseBuiltInHttpURLConnectionRedirectionSupport);
 	}
 
 	public DefaultConfigurationProvider() {
