@@ -47,6 +47,7 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
 import net.toddm.cache.CacheEntry;
+import net.toddm.cache.CachePriority;
 import net.toddm.cache.CacheProvider;
 import net.toddm.cache.LoggingProvider;
 import net.toddm.comm.Priority.StartingPriority;
@@ -157,6 +158,8 @@ public final class CommManager {
 	 * @param headers <b>[OPTIONAL]</b> Can be NULL. The request headers of the request to work on.
 	 * @param requestPriority The priority of this request work relative to other request work.
 	 * @param cachingPriority A hint to the caching provider (if there is one) of the relative priority of the cache entry generated for this response.
+	 * @param cachingBehavior Indicates what caching behavior should be used for the results of the enqueued work.
+	 * @return
 	 */
 	public Work enqueueWork(
 			URI uri, 
@@ -164,10 +167,11 @@ public final class CommManager {
 			byte[] postData, 
 			Map<String, String> headers, 
 			StartingPriority requestPriority, 
-			CacheEntry.Priority cachingPriority) 
+			CachePriority cachingPriority,
+			CacheBehavior cachingBehavior) 
 	{
 		// This constructor will validate all the arguments
-		Work newWork = new Work(uri, method, postData, headers, requestPriority, cachingPriority, this._logger);
+		Work newWork = new Work(uri, method, postData, headers, requestPriority, cachingPriority, cachingBehavior, this._logger);
 		Work resultWork = null;
 		if(this._logger != null) { this._logger.debug("[thread:%1$d] enqueueWork() start", Thread.currentThread().getId()); }
 
@@ -201,7 +205,7 @@ public final class CommManager {
 
 				// Check cache to see if we already have usable results for this request
 				Response cachedResponse = null;
-				if((!CacheEntry.Priority.DO_NOT_CACHE.equals(cachingPriority)) && (this._cacheProvider != null)) {
+				if((!CacheBehavior.DO_NOT_CACHE.equals(cachingBehavior)) && (this._cacheProvider != null)) {
 
 					// If we have a cached response for the request add it to the work, this will allow us to properly handle eTag and 304 response work later
 					CacheEntry cacheEntry = this._cacheProvider.get(Integer.toString(newWork.getRequest().getId()), true);
@@ -787,7 +791,7 @@ public final class CommManager {
 				this._work.setState(Status.COMPLETED);
 				if(_logger != null) { _logger.info("[thread:%1$d] handleWorkUpdatesOnResponse() Returning cached results post 304 [id:%2$d]", Thread.currentThread().getId(), this._work.getId()); }
 
-			} else if((this._work.shouldCache()) && (CommManager.this._cacheProvider != null) && (response.isSuccessful())) {
+			} else if((this._work.shouldCache()) && (CommManager.this._cacheProvider != null) && (response.isSuccessful()) && (!response.shouldNotCacheDueToHeaderDirective())) {
 
 				// ************ CACHE ADD ************
 				byte[] responseObjBytes = null;

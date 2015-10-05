@@ -61,7 +61,7 @@ public class MemoryCacheProvider implements CacheProvider {
 
 	/** {@inheritDoc} */
 	@Override
-	public boolean add(String key, String value, long ttl, long maxStale, String eTag, URI sourceUri, CacheEntry.Priority priority) {
+	public boolean add(String key, String value, long ttl, long maxStale, String eTag, URI sourceUri, CachePriority priority) {
 
 		// The constructor used in the line below does argument validation
 		this._keyToEntry.put(this.getLookupKey(key), new CacheEntry(key, value, ttl, maxStale, eTag, sourceUri, priority));
@@ -73,7 +73,7 @@ public class MemoryCacheProvider implements CacheProvider {
 
 	/** {@inheritDoc} */
 	@Override
-	public boolean add(String key, byte[] value, long ttl, long maxStale, String eTag, URI sourceUri, CacheEntry.Priority priority) {
+	public boolean add(String key, byte[] value, long ttl, long maxStale, String eTag, URI sourceUri, CachePriority priority) {
 
 		// The constructor used in the line below does argument validation
 		this._keyToEntry.put(this.getLookupKey(key), new CacheEntry(key, value, ttl, maxStale, eTag, sourceUri, priority));

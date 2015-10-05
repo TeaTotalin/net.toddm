@@ -21,13 +21,14 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 
 import junit.framework.TestCase;
-import net.toddm.cache.CacheEntry;
+import net.toddm.cache.CachePriority;
 import net.toddm.cache.DefaultLogger;
 import net.toddm.comm.CommManager;
 import net.toddm.comm.DefaultRetryPolicyProvider;
 import net.toddm.comm.Priority.StartingPriority;
 import net.toddm.comm.Request;
 import net.toddm.comm.Request.RequestMethod;
+import net.toddm.comm.CacheBehavior;
 import net.toddm.comm.Response;
 import net.toddm.comm.RetryProfile;
 import net.toddm.comm.Work;
@@ -68,7 +69,7 @@ public class TestDefaultRetryPolicyProvider extends TestCase {
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
 
-		Work work = commManager.enqueueWork(new URI("http://httpbin.org/status/503"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CacheEntry.Priority.DO_NOT_CACHE);
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/status/503"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
         assertNotNull(work);
 
         Response response = work.get();
@@ -83,7 +84,7 @@ public class TestDefaultRetryPolicyProvider extends TestCase {
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
 
-		Work work = commManager.enqueueWork(new URI("http://httpbin.org/status/202"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CacheEntry.Priority.DO_NOT_CACHE);
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/status/202"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
         assertNotNull(work);
 
         Response response = work.get();

@@ -28,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import net.toddm.cache.CacheEntry;
+import net.toddm.cache.CachePriority;
 import net.toddm.cache.LoggingProvider;
 import net.toddm.comm.Priority.StartingPriority;
 
@@ -60,7 +61,8 @@ public class Work implements Future<Response> {
 
     private final Request _request;
     private final Priority _requestPriority;
-    private final CacheEntry.Priority _cachingPriority;
+    private final CachePriority _cachingPriority;
+    private final CacheBehavior _cachingBehavior;
     private final ConcurrentLinkedQueue<FutureTask<Response>> _futureTasks = new ConcurrentLinkedQueue<FutureTask<Response>>();
 	private final LoggingProvider _logger;
 
@@ -75,7 +77,8 @@ public class Work implements Future<Response> {
 			byte[] postData, 
 			Map<String, String> headers, 
 			StartingPriority requestPriority, 
-			CacheEntry.Priority cachingPriority, 
+			CachePriority cachingPriority, 
+			CacheBehavior cachingBehavior, 
 			LoggingProvider loggingProvider)
 	{
 
@@ -84,6 +87,7 @@ public class Work implements Future<Response> {
 		if(method == null) { throw(new IllegalArgumentException("'method' can not be NULL")); }
 		if(requestPriority == null) { throw(new IllegalArgumentException("'requestPriority' can not be NULL")); }
 		if(cachingPriority == null) { throw(new IllegalArgumentException("'cachingPriority' can not be NULL")); }
+		if(cachingBehavior == null) { throw(new IllegalArgumentException("'cachingBehavior' can not be NULL")); }
 		if((postData != null) && (!Request.RequestMethod.POST.equals(method))) {
 			throw(new IllegalArgumentException("'method' must be 'POST' when 'postData' is provided"));
 		}
@@ -93,6 +97,7 @@ public class Work implements Future<Response> {
 		this._request = new Request(uri, method, postData, headers);
 		this._requestPriority = new Priority(this, requestPriority);
 		this._cachingPriority = cachingPriority;
+		this._cachingBehavior = cachingBehavior;
 		this._logger = loggingProvider;
 	}
 
@@ -102,12 +107,15 @@ public class Work implements Future<Response> {
 	/** Returns the request {@link Priority} of this {@link Work} instance. */
 	public Priority getRequestPriority() { return(this._requestPriority); }
 
-	/** Returns the caching {@link Priority} of this {@link Work} instance. */
-	public CacheEntry.Priority getCachingPriority() { return(this._cachingPriority); }
+	/** Returns the caching {@link CachePriority} of this {@link Work} instance, or <b>null<b> if it had no priority set. */
+	public CachePriority getCachingPriority() { return(this._cachingPriority); }
+
+	/** Returns the caching {@link CacheBehavior} of this {@link Work} instance, or <b>null<b> if it had no behavior set. */
+	public CacheBehavior getCachingBehavior() { return(this._cachingBehavior); }
 
 	/** Returns TRUE if the result of this work should participate in caching, FALSE otherwise. */
 	public boolean shouldCache() {
-		return(!CacheEntry.Priority.DO_NOT_CACHE.equals(this._cachingPriority));
+		return(!CacheBehavior.DO_NOT_CACHE.equals(this._cachingBehavior));
 	}
 
 	/** Returns the current state of this {@link Work} instance */

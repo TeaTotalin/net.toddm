@@ -34,7 +34,7 @@ public interface CacheProvider {
 	 * @param priority An indication of relative priority for this cache entry. Depending on implementation, cache providers may use this as a hint when evicting records.
 	 * @return <b>true</b> if the add or update operation was successful, <b>false</b> otherwise.
 	 */
-	public boolean add(String key, String value, long ttl, long maxStale, String eTag, URI sourceUri, CacheEntry.Priority priority);
+	public boolean add(String key, String value, long ttl, long maxStale, String eTag, URI sourceUri, CachePriority priority);
 
 	/**
 	 * Adds an entry to the cache if one with the given key does not already exist. If there is a preexisting entry with the given key 
@@ -49,7 +49,7 @@ public interface CacheProvider {
 	 * @param priority An indication of relative priority for this cache entry. Depending on implementation, cache providers may use this as a hint when evicting records.
 	 * @return <b>true</b> if the add or update operation was successful, <b>false</b> otherwise.
 	 */
-	public boolean add(String key, byte[] value, long ttl, long maxStale, String eTag, URI sourceUri, CacheEntry.Priority priority);
+	public boolean add(String key, byte[] value, long ttl, long maxStale, String eTag, URI sourceUri, CachePriority priority);
 
 	/**
 	 * Returns the {@link CacheEntry} with the given key. If no entry is found for the given key then <b>null</b> is returned.

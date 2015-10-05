@@ -24,8 +24,10 @@ import android.widget.Button;
 import android.widget.TextView;
 
 import net.toddm.cache.CacheEntry;
+import net.toddm.cache.CachePriority;
 import net.toddm.cache.DefaultLogger;
 import net.toddm.cache.LoggingProvider;
+import net.toddm.comm.CacheBehavior;
 import net.toddm.comm.CommManager;
 import net.toddm.comm.Priority;
 import net.toddm.comm.Request;
@@ -99,7 +101,7 @@ public class MainActivity extends ActionBarActivity {
     try {
 
       // Submit the test request to the comm manager and wait for the response
-      Work work = this._commManager.enqueueWork(new URI("http://www.toddm.net/"), Request.RequestMethod.GET, null, null, Priority.StartingPriority.MEDIUM, CacheEntry.Priority.LOW);
+      Work work = this._commManager.enqueueWork(new URI("http://www.toddm.net/"), Request.RequestMethod.GET, null, null, Priority.StartingPriority.MEDIUM, CachePriority.LOW, CacheBehavior.NORMAL);
       Response response = work.get();
       if(response.getResponseCode() != 200) {
         log(String.format(Locale.US, "Test request failed [response code: %1$d]", response.getResponseCode()));

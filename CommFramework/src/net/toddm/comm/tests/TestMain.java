@@ -24,8 +24,11 @@ import java.util.Map;
 import junit.framework.Assert;
 import junit.framework.TestCase;
 import net.toddm.cache.CacheEntry;
+import net.toddm.cache.CachePriority;
+import net.toddm.cache.CacheProvider;
 import net.toddm.cache.MemoryCacheProvider;
 import net.toddm.cache.DefaultLogger;
+import net.toddm.comm.CacheBehavior;
 import net.toddm.comm.CommManager;
 import net.toddm.comm.Priority.StartingPriority;
 import net.toddm.comm.Request.RequestMethod;
@@ -39,7 +42,7 @@ public class TestMain extends TestCase {
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
 
-		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CacheEntry.Priority.DO_NOT_CACHE);
+		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
         assertNotNull(work);
 
         Response response = work.get();
@@ -55,7 +58,7 @@ public class TestMain extends TestCase {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
-		Work work = commManager.enqueueWork(new URI("http://httpbin.org/redirect-to?url=http%3A%2F%2Fwww.toddm.net%2F"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CacheEntry.Priority.DO_NOT_CACHE);
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/redirect-to?url=http%3A%2F%2Fwww.toddm.net%2F"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
 		assertNotNull(work);
 
 		Response response = work.get();
@@ -68,7 +71,7 @@ public class TestMain extends TestCase {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
-		Work work = commManager.enqueueWork(new URI("http://httpbin.org/relative-redirect/3"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CacheEntry.Priority.DO_NOT_CACHE);
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/relative-redirect/3"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
 		assertNotNull(work);
 
 		Response response = work.get();
@@ -86,7 +89,7 @@ public class TestMain extends TestCase {
 		headers.put("Content-Language", "en-US");
 		headers.put("Content-Type", "application/x-www-form-urlencoded");
 
-		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, headers, StartingPriority.MEDIUM, CacheEntry.Priority.DO_NOT_CACHE);
+		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, headers, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
         assertNotNull(work);
 
         Response response = work.get();
@@ -103,7 +106,7 @@ public class TestMain extends TestCase {
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
 
-		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CacheEntry.Priority.DO_NOT_CACHE);
+		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
         assertNotNull(work);
 
         Response response = work.get();
@@ -132,7 +135,7 @@ public class TestMain extends TestCase {
 				.setLoggingProvider(new DefaultLogger())
 				.create();
 
-		Work work = commManager.enqueueWork(new URI("http://httpbin.org/cache"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CacheEntry.Priority.MEDIUM);
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/cache"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.NORMAL);
         assertNotNull(work);
 
         Response response = work.get();
@@ -145,7 +148,7 @@ public class TestMain extends TestCase {
 
         Thread.sleep(101);
 
-		work = commManager.enqueueWork(new URI("http://httpbin.org/cache"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CacheEntry.Priority.MEDIUM);
+		work = commManager.enqueueWork(new URI("http://httpbin.org/cache"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.NORMAL);
         assertNotNull(work);
 
         response = work.get();
@@ -162,7 +165,7 @@ public class TestMain extends TestCase {
 				.setLoggingProvider(new DefaultLogger())
 				.create();
 
-		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CacheEntry.Priority.MEDIUM);
+		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.NORMAL);
         assertNotNull(work);
 
         Response response = work.get();
@@ -173,7 +176,7 @@ public class TestMain extends TestCase {
 		assertNotNull(results);
 		assertTrue(results.length() > 0);
 		
-		Work work2 = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CacheEntry.Priority.MEDIUM);
+		Work work2 = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.NORMAL);
         assertNotNull(work2);
 
         Response response2 = work2.get();
@@ -186,6 +189,50 @@ public class TestMain extends TestCase {
 
 		assertEquals(work.getId(), work2.getId());
 	}
+	
+	public void testNoCachePreventsCaching() throws Exception {
+
+		CacheProvider cacheProvider = new MemoryCacheProvider("testCache", 20, new DefaultLogger());
+		CommManager commManager = (new CommManager.Builder())
+				.setName("TEST")
+				.setCacheProvider(cacheProvider)
+				.setLoggingProvider(new DefaultLogger())
+				.create();
+
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/cache/100"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.HIGH, CacheBehavior.NORMAL);
+        Response response = work.get();
+        assertNotNull(response);
+        assertEquals(200, (int)response.getResponseCode());
+        assertTrue(cacheProvider.containsKey(Integer.toString(work.getId()), true));
+
+		work = commManager.enqueueWork(new URI("http://httpbin.org/response-headers?Cache-Control=no-cache"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.HIGH, CacheBehavior.NORMAL);
+        response = work.get();
+        assertNotNull(response);
+        assertEquals(200, (int)response.getResponseCode());
+        assertFalse(cacheProvider.containsKey(Integer.toString(work.getId()), true));
+	}
+
+	public void testDoNotCachePreventsCaching() throws Exception {
+
+		CacheProvider cacheProvider = new MemoryCacheProvider("testCache20w", 20, new DefaultLogger());
+		CommManager commManager = (new CommManager.Builder())
+				.setName("TEST")
+				.setCacheProvider(cacheProvider)
+				.setLoggingProvider(new DefaultLogger())
+				.create();
+
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/cache/100"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.HIGH, CacheBehavior.NORMAL);
+        Response response = work.get();
+        assertNotNull(response);
+        assertEquals(200, (int)response.getResponseCode());
+        assertTrue(cacheProvider.containsKey(Integer.toString(work.getId()), true));
+
+		work = commManager.enqueueWork(new URI("http://httpbin.org/cache/200"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.HIGH, CacheBehavior.DO_NOT_CACHE);
+        response = work.get();
+        assertNotNull(response);
+        assertEquals(200, (int)response.getResponseCode());
+        assertFalse(cacheProvider.containsKey(Integer.toString(work.getId()), true));
+	}
 
 	public void testRequestEquality() throws Exception {
 
@@ -194,16 +241,16 @@ public class TestMain extends TestCase {
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
 
-		Work work1 = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CacheEntry.Priority.DO_NOT_CACHE);
+		Work work1 = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.NORMAL);
         assertNotNull(work1);
         testRequests.add(work1);
 
-		Work work2 = commManager.enqueueWork(new URI("http://www.toddm.net/?paramA=Apple&paramB=Baby"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CacheEntry.Priority.DO_NOT_CACHE);
+		Work work2 = commManager.enqueueWork(new URI("http://www.toddm.net/?paramA=Apple&paramB=Baby"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
         assertNotNull(work2);
         Assert.assertTrue(work1.getId() != work2.getId());
         testRequests.add(work2);
 
-		Work work3 = commManager.enqueueWork(new URI("http://www.toddm.net/?paramB=Baby&paramA=Apple"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CacheEntry.Priority.DO_NOT_CACHE);
+		Work work3 = commManager.enqueueWork(new URI("http://www.toddm.net/?paramB=Baby&paramA=Apple"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
         assertNotNull(work3);
         Assert.assertTrue(work2.getId() == work3.getId());
         testRequests.add(work3);
@@ -214,7 +261,8 @@ public class TestMain extends TestCase {
 				new String("test POST data").getBytes("UTF-8"), 
 				null, 
 				StartingPriority.MEDIUM, 
-				CacheEntry.Priority.DO_NOT_CACHE);
+				CachePriority.NORMAL, 
+				CacheBehavior.DO_NOT_CACHE);
         assertNotNull(work4);
         Assert.assertTrue(work1.getId() != work4.getId());
         testRequests.add(work4);
@@ -225,7 +273,8 @@ public class TestMain extends TestCase {
 				new String("test POST data").getBytes("UTF-8"), 
 				null, 
 				StartingPriority.MEDIUM, 
-				CacheEntry.Priority.DO_NOT_CACHE);
+				CachePriority.NORMAL, 
+				CacheBehavior.DO_NOT_CACHE);
         assertNotNull(work5);
         Assert.assertTrue(work4.getId() == work5.getId());
         testRequests.add(work5);
@@ -236,7 +285,8 @@ public class TestMain extends TestCase {
 				new String("test POST data-").getBytes("UTF-8"), 
 				null, 
 				StartingPriority.MEDIUM, 
-				CacheEntry.Priority.DO_NOT_CACHE);
+				CachePriority.NORMAL, 
+				CacheBehavior.DO_NOT_CACHE);
         assertNotNull(work6);
         Assert.assertTrue(work5.getId() != work6.getId());
         testRequests.add(work6);

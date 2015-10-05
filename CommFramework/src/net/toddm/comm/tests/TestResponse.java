@@ -20,8 +20,9 @@ import java.util.Locale;
 import java.util.UUID;
 
 import junit.framework.TestCase;
-import net.toddm.cache.CacheEntry;
+import net.toddm.cache.CachePriority;
 import net.toddm.cache.DefaultLogger;
+import net.toddm.comm.CacheBehavior;
 import net.toddm.comm.CommManager;
 import net.toddm.comm.Response;
 import net.toddm.comm.Work;
@@ -37,7 +38,7 @@ public class TestResponse extends TestCase {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
-		Work work = commManager.enqueueWork(new URI("http://httpbin.org/response-headers?Location=http%3A%2F%2Fwww.toddm.net%2F"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CacheEntry.Priority.DO_NOT_CACHE);
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/response-headers?Location=http%3A%2F%2Fwww.toddm.net%2F"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
 		assertNotNull(work);
 
 		Response response = work.get();
@@ -52,7 +53,7 @@ public class TestResponse extends TestCase {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
-		Work work = commManager.enqueueWork(new URI("http://httpbin.org/response-headers?Location=%2Fget"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CacheEntry.Priority.DO_NOT_CACHE);
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/response-headers?Location=%2Fget"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
 		assertNotNull(work);
 
 		Response response = work.get();
@@ -71,7 +72,7 @@ public class TestResponse extends TestCase {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
-		Work work = commManager.enqueueWork(new URI(String.format(Locale.US, "http://httpbin.org/response-headers?ETag=%1$s", eTag)), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CacheEntry.Priority.DO_NOT_CACHE);
+		Work work = commManager.enqueueWork(new URI(String.format(Locale.US, "http://httpbin.org/response-headers?ETag=%1$s", eTag)), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
         assertNotNull(work);
 
         Response response = work.get();
@@ -85,7 +86,7 @@ public class TestResponse extends TestCase {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
-		Work work = commManager.enqueueWork(new URI("http://httpbin.org/cache/100"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CacheEntry.Priority.DO_NOT_CACHE);
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/cache/100"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
         assertNotNull(work);
 
         Response response = work.get();
@@ -99,7 +100,7 @@ public class TestResponse extends TestCase {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
-		Work work = commManager.enqueueWork(new URI("http://httpbin.org/response-headers?Cache-Control=public,+max-age=100,+max-stale=13"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CacheEntry.Priority.DO_NOT_CACHE);
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/response-headers?Cache-Control=public,+max-age=100,+max-stale=13"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
         assertNotNull(work);
 
         Response response = work.get();
@@ -108,12 +109,25 @@ public class TestResponse extends TestCase {
         assertNotNull(response.getMaxStaleFromHeaders());
         assertEquals(13000, (long)response.getMaxStaleFromHeaders());		
 	}
+	
+	public void testShouldNotCacheDueToHeaderDirective() throws Exception {
+
+		CommManager.Builder commManagerBuilder = new CommManager.Builder();
+		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/response-headers?Cache-Control=no-cache"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.HIGH, CacheBehavior.NORMAL);
+        assertNotNull(work);
+
+        Response response = work.get();
+        assertNotNull(response);
+        assertEquals(200, (int)response.getResponseCode());
+        assertTrue(response.shouldNotCacheDueToHeaderDirective());
+	}
 
 	public void testGetRetryAfterSeconds() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
-		Work work = commManager.enqueueWork(new URI("http://httpbin.org/response-headers?Retry-After=120"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CacheEntry.Priority.DO_NOT_CACHE);
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/response-headers?Retry-After=120"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
         assertNotNull(work);
 
         Response response = work.get();
@@ -127,7 +141,7 @@ public class TestResponse extends TestCase {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
-		Work work = commManager.enqueueWork(new URI("http://httpbin.org/response-headers?Retry-After=Fri%2C%2007%20Nov%202088%2023%3A59%3A59%20GMT"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CacheEntry.Priority.DO_NOT_CACHE);
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/response-headers?Retry-After=Fri%2C%2007%20Nov%202088%2023%3A59%3A59%20GMT"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
         assertNotNull(work);
 
         Response response = work.get();
@@ -141,7 +155,7 @@ public class TestResponse extends TestCase {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
-		Work work = commManager.enqueueWork(new URI("http://httpbin.org/response-headers?Retry-After=Fri%2C%2007%20Nov%202014%2023%3A59%3A59%20GMT"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CacheEntry.Priority.DO_NOT_CACHE);
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/response-headers?Retry-After=Fri%2C%2007%20Nov%202014%2023%3A59%3A59%20GMT"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
         assertNotNull(work);
 
         Response response = work.get();

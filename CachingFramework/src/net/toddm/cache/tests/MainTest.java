@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Locale;
 
 import net.toddm.cache.CacheEntry;
+import net.toddm.cache.CachePriority;
 import net.toddm.cache.CacheProvider;
 import net.toddm.cache.MemoryCacheProvider;
 import net.toddm.cache.DefaultLogger;
@@ -45,7 +46,7 @@ public class MainTest extends TestCase {
 		assertEquals(0, cacheProvider.getAll(true).size());
 		assertEquals(0, cacheProvider.size(true));
 
-		cacheProvider.add("key1", "value1: ┤╥,65♀635L2☻~32┐2◙⌠1j32┐53K_", 1L, 1L, null, null, CacheEntry.Priority.MEDIUM);
+		cacheProvider.add("key1", "value1: ┤╥,65♀635L2☻~32┐2◙⌠1j32┐53K_", 1L, 1L, null, null, CachePriority.NORMAL);
 		Thread.sleep(2);
 		CacheEntry entry = cacheProvider.get("key1", true);
 		assertEquals(1, cacheProvider.getAll(true).size());
@@ -57,7 +58,7 @@ public class MainTest extends TestCase {
 		Thread.sleep(1);
 		assertTrue(entry.hasExceededStaleUse());
 		assertEquals(1L, (long)entry.getMaxStale());
-		assertEquals(CacheEntry.Priority.MEDIUM, entry.getPriority());
+		assertEquals(CachePriority.NORMAL, entry.getPriority());
 
 		entry = cacheProvider.get("key1", false);
 		assertNull(entry);
@@ -65,7 +66,7 @@ public class MainTest extends TestCase {
 	    assertNotNull(entries);
 	    assertEquals(0, entries.size());
 
-		cacheProvider.add("key2", "value2", 1000000L, 1000001L, null, null, CacheEntry.Priority.MEDIUM);
+		cacheProvider.add("key2", "value2", 1000000L, 1000001L, null, null, CachePriority.NORMAL);
 		Thread.sleep(2);
 		entry = cacheProvider.get("key2", true);
 		assertEquals(2, cacheProvider.getAll(true).size());
@@ -77,14 +78,14 @@ public class MainTest extends TestCase {
 		assertFalse(entry.hasExceededStaleUse());
 		assertEquals(1000001L, (long)entry.getMaxStale());
 
-		cacheProvider.add("key3", "value3", 1000000L, 0L, null, null, CacheEntry.Priority.MEDIUM);
+		cacheProvider.add("key3", "value3", 1000000L, 0L, null, null, CachePriority.NORMAL);
 		Thread.sleep(2);
 		entry = cacheProvider.get("key3", true);
 		assertNotNull(entry);
 		assertEquals(3, cacheProvider.getAll(true).size());
 		assertEquals(3, cacheProvider.size(true));
 
-		cacheProvider.add("key4", "value4", 1000000L, 0L, null, null, CacheEntry.Priority.MEDIUM);
+		cacheProvider.add("key4", "value4", 1000000L, 0L, null, null, CachePriority.NORMAL);
 		Thread.sleep(2);
 		entry = cacheProvider.get("key4", true);
 		assertNotNull(entry);
@@ -107,7 +108,7 @@ public class MainTest extends TestCase {
 		assertNotNull(entry);
 
 		cacheProvider.removeAll();
-		cacheProvider.add("key5", "value5", 1L, 0L, null, null, CacheEntry.Priority.MEDIUM);
+		cacheProvider.add("key5", "value5", 1L, 0L, null, null, CachePriority.NORMAL);
 		Thread.sleep(2);
 		assertEquals(1, cacheProvider.size(true));
 		assertEquals(0, cacheProvider.size(false));
@@ -119,7 +120,7 @@ public class MainTest extends TestCase {
 		assertEquals(0, cacheProvider.size(true));
 
 		final byte[] testBytes = new byte[] { (byte)204, 113, 108, 122, 3, (byte)232, 112, 50, 17, 63 };
-		cacheProvider.add("key1", testBytes, 1L, 0L, null, null, CacheEntry.Priority.MEDIUM);
+		cacheProvider.add("key1", testBytes, 1L, 0L, null, null, CachePriority.NORMAL);
 		entry = cacheProvider.get("key1", true);
 		assertEquals(1, cacheProvider.getAll(true).size());
 		assertEquals(1, cacheProvider.size(true));
@@ -133,14 +134,14 @@ public class MainTest extends TestCase {
 			assertEquals(testBytes[i], entry.getBytesValue()[i]);
 		}
 
-		cacheProvider.add("maxValTestKey1", "maxValTestValue1: ┤╥,65♀635L2☻~32┐2◙⌠1j32┐53K_", Long.MAX_VALUE, Long.MAX_VALUE, null, null, CacheEntry.Priority.MEDIUM);
+		cacheProvider.add("maxValTestKey1", "maxValTestValue1: ┤╥,65♀635L2☻~32┐2◙⌠1j32┐53K_", Long.MAX_VALUE, Long.MAX_VALUE, null, null, CachePriority.NORMAL);
 		entry = cacheProvider.get("maxValTestKey1", true);
 		assertFalse(entry.hasExpired());
 		assertFalse(entry.hasExceededStaleUse());
 		assertEquals(Long.MAX_VALUE, (long)entry.getTtl());
 		assertEquals(Long.MAX_VALUE, (long)entry.getMaxStale());
 
-		cacheProvider.add("maxValTestKey2", "maxValTestValue1: ┤╥,65♀635L2☻~32┐2◙⌠1j32┐53K_", Long.MAX_VALUE - 100, Long.MAX_VALUE - 100, null, null, CacheEntry.Priority.MEDIUM);
+		cacheProvider.add("maxValTestKey2", "maxValTestValue1: ┤╥,65♀635L2☻~32┐2◙⌠1j32┐53K_", Long.MAX_VALUE - 100, Long.MAX_VALUE - 100, null, null, CachePriority.NORMAL);
 		entry = cacheProvider.get("maxValTestKey2", true);
 		assertFalse(entry.hasExpired());
 		assertFalse(entry.hasExceededStaleUse());

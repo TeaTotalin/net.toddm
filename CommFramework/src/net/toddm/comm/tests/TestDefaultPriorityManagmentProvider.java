@@ -22,8 +22,9 @@ import java.util.Collections;
 
 import junit.framework.Assert;
 import junit.framework.TestCase;
-import net.toddm.cache.CacheEntry;
+import net.toddm.cache.CachePriority;
 import net.toddm.cache.DefaultLogger;
+import net.toddm.comm.CacheBehavior;
 import net.toddm.comm.CommManager;
 import net.toddm.comm.DefaultPriorityManagmentProvider;
 import net.toddm.comm.Priority;
@@ -38,7 +39,7 @@ public class TestDefaultPriorityManagmentProvider extends TestCase {
 		// Get a Work object...
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
-		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.LOW, CacheEntry.Priority.DO_NOT_CACHE);
+		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.LOW, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
 
 		// Get the Priority object instance created for the work
 		Priority testPriority = work.getRequestPriority();
@@ -82,11 +83,11 @@ public class TestDefaultPriorityManagmentProvider extends TestCase {
 		// Get Priority object instances to test with by submitting work
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
-		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.LOW, CacheEntry.Priority.DO_NOT_CACHE);
+		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, StartingPriority.LOW, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
 		Priority priorityLow = work.getRequestPriority();
-		work = commManager.enqueueWork(new URI("http://httpbin.org/status/200"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CacheEntry.Priority.DO_NOT_CACHE);
+		work = commManager.enqueueWork(new URI("http://httpbin.org/status/200"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
 		Priority priorityMedium = work.getRequestPriority();
-		work = commManager.enqueueWork(new URI("http://httpbin.org/status/201"), RequestMethod.GET, null, null, StartingPriority.HIGH, CacheEntry.Priority.DO_NOT_CACHE);
+		work = commManager.enqueueWork(new URI("http://httpbin.org/status/201"), RequestMethod.GET, null, null, StartingPriority.HIGH, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
 		Priority priorityHigh = work.getRequestPriority();
 
 		// Set up a list of out of order priorities to sort

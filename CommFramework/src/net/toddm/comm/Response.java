@@ -183,6 +183,15 @@ public class Response implements Serializable {
 	}
 
 	/**
+	 * If the Cache-Control headers of this {@link Response} instance contain the "no-cache" 
+	 * directive <b>true</b> is returned, otherwise <b>false</b> is returned.
+	 */
+	public boolean shouldNotCacheDueToHeaderDirective() {
+		Map<String, String> cacheControlDirectives = this.parseCacheControlHeader();
+		return(cacheControlDirectives.containsKey("no-cache"));
+	}
+
+	/**
 	 * If we are able to resolve a TTL value form the Cache-Control headers ("max-age") of this {@link Response} instance
 	 * then the TTL value is returned, otherwise NULL is returned. The TTL value returned is in milliseconds.
 	 */

@@ -26,6 +26,7 @@ import android.database.sqlite.SQLiteStatement;
 
 import net.toddm.cache.CacheEntry;
 import net.toddm.cache.CacheException;
+import net.toddm.cache.CachePriority;
 import net.toddm.cache.CacheProvider;
 import net.toddm.cache.LoggingProvider;
 
@@ -134,7 +135,7 @@ public class DBCacheProvider extends SQLiteOpenHelper implements CacheProvider {
      * {@inheritDoc}
      */
     @Override
-    public boolean add(String key, String value, long ttl, long maxStale, String eTag, URI sourceUri, CacheEntry.Priority priority) {
+    public boolean add(String key, String value, long ttl, long maxStale, String eTag, URI sourceUri, CachePriority priority) {
         return (this.add(key, value, null, ttl, maxStale, eTag, sourceUri, priority));
     }
 
@@ -142,14 +143,14 @@ public class DBCacheProvider extends SQLiteOpenHelper implements CacheProvider {
      * {@inheritDoc}
      */
     @Override
-    public boolean add(String key, byte[] value, long ttl, long maxStale, String eTag, URI sourceUri, CacheEntry.Priority priority) {
+    public boolean add(String key, byte[] value, long ttl, long maxStale, String eTag, URI sourceUri, CachePriority priority) {
         return (this.add(key, null, value, ttl, maxStale, eTag, sourceUri, priority));
     }
 
     /**
      * Add or update a value in the cache.
      */
-    private boolean add(String key, String valueString, byte[] valueBytes, long ttl, long maxStale, String eTag, URI sourceUri, CacheEntry.Priority priority) {
+    private boolean add(String key, String valueString, byte[] valueBytes, long ttl, long maxStale, String eTag, URI sourceUri, CachePriority priority) {
         if ((key == null) || (key.length() <= 0)) {
             throw (new IllegalArgumentException("'key' can not be NULL or empty"));
         }
@@ -328,7 +329,7 @@ public class DBCacheProvider extends SQLiteOpenHelper implements CacheProvider {
             eTag = cursor.getString(9);             // eTag
         }
 
-        CacheEntry.Priority priority = CacheEntry.Priority.valueOf(cursor.getString(10));  // priority
+        CachePriority priority = CachePriority.valueOf(cursor.getString(10));  // priority
 
         // Create and return the CacheEntry instance
         return (new CacheEntry(key, valueString, valueBytes, ttl, maxStale, eTag, sourceUri, timestampCreated, timestampModified, priority));

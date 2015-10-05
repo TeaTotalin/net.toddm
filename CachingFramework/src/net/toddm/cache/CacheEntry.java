@@ -26,28 +26,6 @@ import java.net.URI;
  */
 public class CacheEntry {
 
-	/** An enumeration of all possible caching priorities a {@link CacheEntry} instance can have. */
-	public enum Priority {
-
-		/** Indicates to a caching provider that the related data should not be cached. */
-		DO_NOT_CACHE,
-		
-		/**
-		 * Indicates to a caching provider that the related data has a low caching priority. 
-		 * Depending on provider implementation, entries with this priority level may be more likely to be evicted from the cache when LRU thresholds are reached.
-		 */
-		LOW,
-		
-		/** Indicates to a caching provider that the related data has a normal (most common) caching priority. */
-		MEDIUM,
-		
-		/**
-		 * Indicates to a caching provider that the related data has a high caching priority.
-		 * Depending on provider implementation, entries with this priority level are less likely to be evicted from the cache when LRU thresholds are reached.
-		 */
-		HIGH
-	}
-
 	private final String _key;
 	private final String _valueString;
 	private final byte[] _valueBytes;
@@ -57,7 +35,7 @@ public class CacheEntry {
 	private final URI _sourceUri;
 	private final Long _timestampCreated;
 	private final Long _timestampModified;
-	private final Priority _priority;
+	private final CachePriority _priority;
 
 	/**
 	 * Creates an instance of {@link CacheEntry} from the given values.
@@ -71,7 +49,7 @@ public class CacheEntry {
 	 * @param sourceUri An optional source URI. This can be NULL if you do not make use of URIs.
 	 * @param priority An indication of relative priority for this cache entry. Depending on implementation, cache providers may use this as a hint when evicting records.
 	 */
-	public CacheEntry(String key, String value, long ttl, long maxStale, String eTag, URI sourceUri, Priority priority) {
+	public CacheEntry(String key, String value, long ttl, long maxStale, String eTag, URI sourceUri, CachePriority priority) {
 
 		// Validate parameters
 		if((key == null) || (key.length() <= 0)) { throw(new IllegalArgumentException("'key' can not be NULL or empty")); }
@@ -101,7 +79,7 @@ public class CacheEntry {
 	 * @param sourceUri An optional source URI. This can be NULL if you do not make use of URIs.
 	 * @param priority An indication of relative priority for this cache entry. Depending on implementation, cache providers may use this as a hint when evicting records.
 	 */
-	public CacheEntry(String key, byte[] value, long ttl, long maxStale, String eTag, URI sourceUri, Priority priority) {
+	public CacheEntry(String key, byte[] value, long ttl, long maxStale, String eTag, URI sourceUri, CachePriority priority) {
 
 		// Validate parameters
 		if((key == null) || (key.length() <= 0)) { throw(new IllegalArgumentException("'key' can not be NULL or empty")); }
@@ -134,7 +112,7 @@ public class CacheEntry {
 	 * @param timestampModified The epoch representation of the creation timestamp for this cache entry.
 	 * @param priority An indication of relative priority for this cache entry. Depending on implementation, cache providers may use this as a hint when evicting records.
 	 */
-	public CacheEntry(String key, String valueString, byte[] valueBytes, long ttl, long maxStale, String eTag, URI sourceUri, long timestampCreated, long timestampModified, Priority priority) {
+	public CacheEntry(String key, String valueString, byte[] valueBytes, long ttl, long maxStale, String eTag, URI sourceUri, long timestampCreated, long timestampModified, CachePriority priority) {
 
 		// Validate parameters
 		if((key == null) || (key.length() <= 0)) { throw(new IllegalArgumentException("'key' can not be NULL or empty")); }
@@ -191,7 +169,7 @@ public class CacheEntry {
 	 * The meaning of this value may vary based on cache provider implementation.
 	 * Cache providers may use this value as a hint when evicting records.
 	 */
-	public Priority getPriority() { return(this._priority); }
+	public CachePriority getPriority() { return(this._priority); }
 
 	/**
 	 * If this {@link CacheEntry} instance has expired, based on it's TTL value and creation 
