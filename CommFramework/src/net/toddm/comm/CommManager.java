@@ -218,7 +218,7 @@ public final class CommManager {
 						}
 					}
 				}
-				
+
 				if(cachedResponse != null) {
 
 					// If we have a usable cached result use it
@@ -227,7 +227,8 @@ public final class CommManager {
 					newWork.addFutureTask(new CachedResponseFuture(cachedResponse));
 					if(this._logger != null) { this._logger.info("[thread:%1$d] enqueueWork() Returning cached results [id:%2$d]", Thread.currentThread().getId(), newWork.getId()); }
 					resultWork = newWork;
-				} else {
+
+				} else if(!CacheBehavior.GET_ONLY_FROM_CACHE.equals(cachingBehavior)) {
 
 					// This request is not available from cache and is not already being 
 					// managed by this CommManager instance so add it as new work
@@ -239,6 +240,14 @@ public final class CommManager {
 	
 					// We've added new work, so kick the worker thread
 					_workManagmentLock.notify();
+				} else {
+
+					// This request can not be services, so return a work handle that indicates this
+					newWork.setResponse(null);
+					newWork.setState(Work.Status.COMPLETED);
+					newWork.addFutureTask(new NoResponseFuture());
+					if(this._logger != null) { this._logger.info("[thread:%1$d] enqueueWork() Returning null results [id:%2$d]", Thread.currentThread().getId(), newWork.getId()); }
+					resultWork = newWork;
 				}
 			}
 

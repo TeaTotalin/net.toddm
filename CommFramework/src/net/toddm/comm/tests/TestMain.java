@@ -234,6 +234,33 @@ public class TestMain extends TestCase {
         assertFalse(cacheProvider.containsKey(Integer.toString(work.getId()), true));
 	}
 
+	public void testGetOnlyFromCache() throws Exception {
+
+		CacheProvider cacheProvider = new MemoryCacheProvider("testCacheThr33", 20, new DefaultLogger());
+		CommManager commManager = (new CommManager.Builder())
+				.setName("TEST")
+				.setCacheProvider(cacheProvider)
+				.setLoggingProvider(new DefaultLogger())
+				.create();
+
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/cache/500"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.HIGH, CacheBehavior.GET_ONLY_FROM_CACHE);
+        Response response = work.get();
+        assertNull(response);
+        assertFalse(cacheProvider.containsKey(Integer.toString(work.getId()), true));
+
+		work = commManager.enqueueWork(new URI("http://httpbin.org/cache/500"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.HIGH, CacheBehavior.NORMAL);
+        response = work.get();
+        assertNotNull(response);
+        assertEquals(200, (int)response.getResponseCode());
+        assertTrue(cacheProvider.containsKey(Integer.toString(work.getId()), true));
+
+		work = commManager.enqueueWork(new URI("http://httpbin.org/cache/500"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.HIGH, CacheBehavior.GET_ONLY_FROM_CACHE);
+        response = work.get();
+        assertNotNull(response);
+        assertEquals(200, (int)response.getResponseCode());
+        assertTrue(cacheProvider.containsKey(Integer.toString(work.getId()), true));
+	}
+
 	public void testRequestEquality() throws Exception {
 
 		List<Work> testRequests = new ArrayList<Work>();
