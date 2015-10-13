@@ -581,7 +581,7 @@ public final class CommManager {
 				urlConnection.setReadTimeout(CommManager.this._readTimeoutMilliseconds);
 				urlConnection.setDoInput(true);
 				urlConnection.setRequestMethod(this._work.getRequest().getMethod().name());
-				if(_logger != null) { _logger.debug("%1$s Making an HTTP %2$s request", this._logPrefix, this._work.getRequest().getMethod().name()); }
+				if(_logger != null) { _logger.debug("%1$s Making an HTTP %2$s request to %3$s", this._logPrefix, this._work.getRequest().getMethod().name(), url.toString()); }
 
 				// Add any common request headers. Headers set here will be overridden below if there are duplicates.
 				urlConnection.setRequestProperty("Accept-Encoding", "gzip");
