@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -581,7 +582,6 @@ public final class CommManager {
 				urlConnection.setReadTimeout(CommManager.this._readTimeoutMilliseconds);
 				urlConnection.setDoInput(true);
 				urlConnection.setRequestMethod(this._work.getRequest().getMethod().name());
-				if(_logger != null) { _logger.debug("%1$s Making an HTTP %2$s request to %3$s", this._logPrefix, this._work.getRequest().getMethod().name(), url.toString()); }
 
 				// Add any common request headers. Headers set here will be overridden below if there are duplicates.
 				urlConnection.setRequestProperty("Accept-Encoding", "gzip");
@@ -600,6 +600,21 @@ public final class CommManager {
 					urlConnection.setRequestProperty("If-None-Match", cacheEntry.getEtag());
 				}
 
+				// Do some logging
+				if(_logger != null) {
+					_logger.debug("%1$s Making an HTTP %2$s request to %3$s", this._logPrefix, this._work.getRequest().getMethod().name(), url.toString());
+					Map<String, List<String>> requestHeaders = urlConnection.getRequestProperties();
+					if(requestHeaders != null) {
+						for(String key : requestHeaders.keySet()) {
+							StringBuilder logMsg = new StringBuilder(String.format(Locale.US,  "%1$s    Request header '%2$s':", this._logPrefix, key));
+							for(String value : requestHeaders.get(key)) {
+								logMsg.append(String.format(Locale.US,  " '%1$s'", value));
+							}
+							_logger.debug(logMsg.toString());
+						}
+					}
+				}
+
 				// Add the POST body if we have one (this must be done before establishing the connection)
 				if(	(RequestMethod.POST.equals(this._work.getRequest().getMethod())) && 
 					(this._work.getRequest().getPostData() != null) && 
@@ -613,7 +628,7 @@ public final class CommManager {
 						outStream = urlConnection.getOutputStream();
 						outStream.write(this._work.getRequest().getPostData());
 						outStream.flush();
-						if(_logger != null) { _logger.debug("%1$s Sent %2$d bytes of POST body data", this._logPrefix, this._work.getRequest().getPostData().length); }
+						if(_logger != null) { _logger.debug("%1$s Sending %2$d bytes of POST body data", this._logPrefix, this._work.getRequest().getPostData().length); }
 					} finally {
 				        if(outStream != null) { try { outStream.close(); } catch(Exception e) {} }  // Exception suppression is OK here
 					}
