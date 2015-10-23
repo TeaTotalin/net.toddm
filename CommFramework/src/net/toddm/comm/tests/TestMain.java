@@ -261,6 +261,46 @@ public class TestMain extends TestCase {
         assertTrue(cacheProvider.containsKey(Integer.toString(work.getId()), true));
 	}
 
+	public void testMaxStaleBehavior() throws Exception {
+
+		CacheProvider cacheProvider = new MemoryCacheProvider("testCacheMaxStale", 20, new DefaultLogger());
+		CommManager commManager = (new CommManager.Builder())
+				.setName("TEST_MAX_STALE")
+				.setCacheProvider(cacheProvider)
+				.setLoggingProvider(new DefaultLogger())
+				.create();
+
+		// Confirm that new uncached work results in new work
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/response-headers?Cache-Control=public,+max-age=1,+max-stale=1"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.NORMAL);
+        assertNotNull(work);
+        assertEquals("net.toddm.comm.CommWork", work.getClass().getName());
+
+        Response response = work.get();
+        assertNotNull(response);
+        assertEquals(200, (int)response.getResponseCode());
+        assertNotNull(response.getTtlFromHeaders());
+        assertEquals(1000, (long)response.getTtlFromHeaders());		
+        assertNotNull(response.getMaxStaleFromHeaders());
+        assertEquals(1000, (long)response.getMaxStaleFromHeaders());
+
+        // Confirm that subsequent request returns cached work based on unexpired cache entry
+		work = commManager.enqueueWork(new URI("http://httpbin.org/response-headers?Cache-Control=public,+max-age=1,+max-stale=1"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.NORMAL);
+        assertNotNull(work);
+        assertEquals("net.toddm.comm.CachedWork", work.getClass().getName());
+
+        Thread.sleep(1001);
+
+        // Confirm that subsequent request returns cached work based on expired cache entry that is still in the "stale use" window
+		work = commManager.enqueueWork(new URI("http://httpbin.org/response-headers?Cache-Control=public,+max-age=1,+max-stale=1"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.NORMAL);
+        assertNotNull(work);
+        assertEquals("net.toddm.comm.CachedWork", work.getClass().getName());
+
+        // Confirm that subsequent request returns cached work rather than the new work started by the previous "stale use" window request
+		work = commManager.enqueueWork(new URI("http://httpbin.org/response-headers?Cache-Control=public,+max-age=1,+max-stale=1"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.NORMAL);
+        assertNotNull(work);
+        assertEquals("net.toddm.comm.CachedWork", work.getClass().getName());
+	}
+
 	public void testRequestEquality() throws Exception {
 
 		List<Work> testRequests = new ArrayList<Work>();

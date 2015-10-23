@@ -53,7 +53,7 @@ import net.toddm.cache.CacheProvider;
 import net.toddm.cache.LoggingProvider;
 import net.toddm.comm.Priority.StartingPriority;
 import net.toddm.comm.Request.RequestMethod;
-import net.toddm.comm.Work.Status;
+import net.toddm.comm.CommWork.Status;
 
 /**
  * This is the main work horse of the communications framework. Instances of this class are used to submit work and provide priority queue 
@@ -132,9 +132,9 @@ public final class CommManager {
 	private final boolean _useBuiltInHttpURLConnectionRedirectionSupport;
 
 	private final ExecutorService _requestWorkExecutorService;
-	private final LinkedList<Work> _queuedWork = new LinkedList<Work>();
-	private final ArrayList<Work> _activeWork = new ArrayList<Work>();
-	private final ArrayList<Work> _retryWork= new ArrayList<Work>();
+	private final LinkedList<CommWork> _queuedWork = new LinkedList<CommWork>();
+	private final ArrayList<CommWork> _activeWork = new ArrayList<CommWork>();
+	private final ArrayList<CommWork> _retryWork= new ArrayList<CommWork>();
 
 	// Members needed for managing the work thread.
 	// This is an always-running management thread, so we do not host it in an ExecutorService.
@@ -160,7 +160,6 @@ public final class CommManager {
 	 * @param requestPriority The priority of this request work relative to other request work.
 	 * @param cachingPriority A hint to the caching provider (if there is one) of the relative priority of the cache entry generated for this response.
 	 * @param cachingBehavior Indicates what caching behavior should be used for the results of the enqueued work.
-	 * @return
 	 */
 	public Work enqueueWork(
 			URI uri, 
@@ -171,90 +170,115 @@ public final class CommManager {
 			CachePriority cachingPriority,
 			CacheBehavior cachingBehavior) 
 	{
-		// This constructor will validate all the arguments
-		Work newWork = new Work(uri, method, postData, headers, requestPriority, cachingPriority, cachingBehavior, this._logger);
+		// The CommWork constructor call below will validate all the arguments
 		Work resultWork = null;
+		CommWork newWork = new CommWork(uri, method, postData, headers, requestPriority, cachingPriority, cachingBehavior, this._logger);
 		if(this._logger != null) { this._logger.debug("[thread:%1$d] enqueueWork() start", Thread.currentThread().getId()); }
+
+		// Check cache to see if we already have usable results for this request
+		CacheEntry cacheEntry = null;
+		Response cachedResponse = null;
+		if((!CacheBehavior.DO_NOT_CACHE.equals(cachingBehavior)) && (this._cacheProvider != null)) {
+
+			// If we have a cached response for the request add it to the work, this will allow us to properly handle eTag and 304 response work later
+			cacheEntry = this._cacheProvider.get(Integer.toString(newWork.getRequest().getId()), true);
+			if(cacheEntry != null) {
+				newWork.setCachedResponse(cacheEntry);
+
+				// TODO: CONFIG: Allowing the use of stale cache entries should come from config, maybe allowing request instance to override
+				if((!cacheEntry.hasExpired()) || (!cacheEntry.hasExceededStaleUse())) {
+					cachedResponse = getResponseFromCacheEntry(cacheEntry);
+				}
+			}
+		}
 
 		synchronized(_workManagmentLock) {
 
 			// Check if the specified work is already being handled by the communications framework
-			Work existingWork = null;
-			int index = _queuedWork.indexOf(newWork);
-			if(index >= 0) {
-				existingWork = _queuedWork.get(index);
-			} else {
-				index = _activeWork.indexOf(newWork);
-				if(index >= 0) {
-					existingWork = _activeWork.get(index);
+			CommWork existingWork = this.getExistingWork(newWork);
+
+			if(cachedResponse != null) {
+				
+				// If we have a usable cached result use it
+				resultWork = new CachedWork(newWork.getRequest(), cachedResponse, newWork.getRequestPriority(), newWork.getCachingPriority(), newWork.getCachingBehavior());
+				if(this._logger != null) { this._logger.info("[thread:%1$d] enqueueWork() Returning cached results [id:%2$d]", Thread.currentThread().getId(), newWork.getId()); }
+
+				if((cacheEntry != null) && (cacheEntry.hasExpired())) {
+
+					// The cached response has expired, but is still in the "stale use" window, so if we are not already working to update the response start new work to update
+					if(existingWork == null) {
+						this.addNewWork(newWork);
+					}
 				} else {
-					index = _retryWork.indexOf(newWork);
-					if(index >= 0) {
-						existingWork = _retryWork.get(index);
-					}
-				}
-			}
-			
-			if(existingWork != null) {
 
-				// TODO: Consider if we want to support updating request priority for already queued work based on clients enqueuing the same request at a different starting priority level.
-				// I think we would only want to allow increasing priority to prevent messing with starvation prevention algorithms. For now this is probably a very low priority feature.
-
-				if(this._logger != null) { this._logger.info("[thread:%1$d] enqueueWork() Returning already enqueued work [id:%2$d]", Thread.currentThread().getId(), existingWork.getId()); }
-				resultWork = existingWork;
-			} else {
-
-				// Check cache to see if we already have usable results for this request
-				Response cachedResponse = null;
-				if((!CacheBehavior.DO_NOT_CACHE.equals(cachingBehavior)) && (this._cacheProvider != null)) {
-
-					// If we have a cached response for the request add it to the work, this will allow us to properly handle eTag and 304 response work later
-					CacheEntry cacheEntry = this._cacheProvider.get(Integer.toString(newWork.getRequest().getId()), true);
-					if(cacheEntry != null) {
-						newWork.setCachedResponse(cacheEntry);
-
-						// TODO: CONFIG: Allowing the use of stale cache entries should come from config, maybe allowing request instance to override
-						if(!cacheEntry.hasExpired()) {
-							cachedResponse = getResponseFromCacheEntry(cacheEntry);
-						}
-					}
-				}
-
-				if(cachedResponse != null) {
-
-					// If we have a usable cached result use it
+					// The cached response has not yet expired, simply update work state accordingly
 					newWork.setResponse(cachedResponse);
-					newWork.setState(Work.Status.COMPLETED);
+					newWork.setState(CommWork.Status.COMPLETED);
 					newWork.addFutureTask(new CachedResponseFuture(cachedResponse));
-					if(this._logger != null) { this._logger.info("[thread:%1$d] enqueueWork() Returning cached results [id:%2$d]", Thread.currentThread().getId(), newWork.getId()); }
-					resultWork = newWork;
+				}
+			} else {
 
-				} else if(!CacheBehavior.GET_ONLY_FROM_CACHE.equals(cachingBehavior)) {
-
-					// This request is not available from cache and is not already being 
-					// managed by this CommManager instance so add it as new work
-					newWork.addFutureTask(new FutureTask<Response>(new WorkCallable(newWork)));
-					addWorkToQueue(newWork, ManagedQueue.QUEUED);
-					newWork.setState(Work.Status.WAITING);
-					if(this._logger != null) { this._logger.info("[thread:%1$d] enqueueWork() Added new work [id:%2$d]", Thread.currentThread().getId(), newWork.getId()); }
-					resultWork = newWork;
+				if(existingWork != null) {
 	
-					// We've added new work, so kick the worker thread
-					_workManagmentLock.notify();
-				} else {
+					// TODO: Consider if we want to support updating request priority for already queued work based on clients enqueuing the same request at a different starting priority level.
+					// I think we would only want to allow increasing priority to prevent messing with starvation prevention algorithms. For now this is probably a very low priority feature.
+	
+					// Return existing work that is currently being processed
+					if(this._logger != null) { this._logger.info("[thread:%1$d] enqueueWork() Returning already enqueued work [id:%2$d]", Thread.currentThread().getId(), existingWork.getId()); }
+					resultWork = existingWork;
+				} else if(CacheBehavior.GET_ONLY_FROM_CACHE.equals(cachingBehavior)) {
 
-					// This request can not be services, so return a work handle that indicates this
+					// This request can not be serviced, so return a work handle that indicates this
 					newWork.setResponse(null);
-					newWork.setState(Work.Status.COMPLETED);
+					newWork.setState(CommWork.Status.COMPLETED);
 					newWork.addFutureTask(new NoResponseFuture());
 					if(this._logger != null) { this._logger.info("[thread:%1$d] enqueueWork() Returning null results [id:%2$d]", Thread.currentThread().getId(), newWork.getId()); }
 					resultWork = newWork;
+				} else {
+
+					// This request is not available from cache and is not already being worked on so add it as new work
+					resultWork = newWork;
+					this.addNewWork(newWork);
 				}
 			}
-
 		}
-		
+
 		return(resultWork);
+	}
+
+	/**
+	 * Looks to see if the given work is already being processed by this CommManager instance.
+	 * If it is, the existing work instance is returned, otherwise <b>null</b> is returned.
+	 */
+	private CommWork getExistingWork(CommWork newWork) {
+		int index = _queuedWork.indexOf(newWork);
+		if(index >= 0) {
+			return(_queuedWork.get(index));
+		} else {
+			index = _activeWork.indexOf(newWork);
+			if(index >= 0) {
+				return(_activeWork.get(index));
+			} else {
+				index = _retryWork.indexOf(newWork);
+				if(index >= 0) {
+					return(_retryWork.get(index));
+				}
+			}
+		}
+		return(null);
+	}
+
+	/** Adds the given work as new work to be processed by this {@link CommManager} instance. */
+	private void addNewWork(CommWork newWork) {
+
+		// Update state for new work
+		newWork.addFutureTask(new FutureTask<Response>(new WorkCallable(newWork)));
+		addWorkToQueue(newWork, ManagedQueue.QUEUED);
+		newWork.setState(CommWork.Status.WAITING);
+		if(this._logger != null) { this._logger.info("[thread:%1$d] enqueueWork() Added new work [id:%2$d]", Thread.currentThread().getId(), newWork.getId()); }
+
+		// We've added new work, so kick the worker thread
+		_workManagmentLock.notify();
 	}
 
 	/**
@@ -286,9 +310,9 @@ public final class CommManager {
 
 	/**
 	 * This method <b>does not block</b> and should only be carefully used internally by this class from within suitable critical sections.<br>
-	 * Adds the given {@link Work} instance to the given queue and ensures that the Work instance is removed from the other queues, as needed.
+	 * Adds the given {@link CommWork} instance to the given queue and ensures that the Work instance is removed from the other queues, as needed.
 	 */
-	private void addWorkToQueue(Work work, ManagedQueue queue) {
+	private void addWorkToQueue(CommWork work, ManagedQueue queue) {
 
 		// Validate arguments
 		if(work == null) { throw(new IllegalArgumentException("'work' can not be NULL")); }
@@ -376,7 +400,7 @@ public final class CommManager {
 
 		// Examine pending retry work to see if there is a time we should wake up without being notified
 		long now = System.currentTimeMillis();
-		for(Work work : this._retryWork) {
+		for(CommWork work : this._retryWork) {
 			long delta = work.getRetryAfterTimestamp() - now;
 			if(delta < retryInterval) { retryInterval = delta; }
 		}
@@ -442,13 +466,13 @@ public final class CommManager {
 
 						// Check the retry queue to see if we need to move any work from pending retry to the priority queue
 						long now = System.currentTimeMillis();
-						ArrayList<Work> retryNowList = new ArrayList<Work>();
-						for(Work retryWork : _retryWork) {
+						ArrayList<CommWork> retryNowList = new ArrayList<CommWork>();
+						for(CommWork retryWork : _retryWork) {
 							if(retryWork.getRetryAfterTimestamp() <= now) {
 								retryNowList.add(retryWork);
 							}
 						}
-						for(Work retryWork : retryNowList) {
+						for(CommWork retryWork : retryNowList) {
 							addWorkToQueue(retryWork, ManagedQueue.QUEUED);
 							retryWork.setState(Status.WAITING);
 							if(_logger != null) { _logger.debug("[thread:%1$d] Request %2$d moved from retry to queue", Thread.currentThread().getId(), retryWork.getId()); }
@@ -458,15 +482,15 @@ public final class CommManager {
 						while((_activeWork.size() < _maxSimultaneousRequests) && (_queuedWork.size() > 0)) {
 
 							// Update request priorities as needed using the provided PriorityManagmentProvider implementation
-							for(Work work : _queuedWork) { CommManager.this._priorityManagmentProvider.promotePriority(work.getRequestPriority()); }
+							for(CommWork work : _queuedWork) { CommManager.this._priorityManagmentProvider.promotePriority(work.getRequestPriority()); }
 
 							// Sort the current priority queue using the provided PriorityManagmentProvider implementation and get the next item
 							Collections.sort(_queuedWork, CommManager.this._workComparator);
 
 							// Grab the next request, move it to the active queue, and start the work
-							Work workToStart = _queuedWork.removeFirst();
+							CommWork workToStart = _queuedWork.removeFirst();
 							addWorkToQueue(workToStart, ManagedQueue.ACTIVE);
-							workToStart.setState(Work.Status.RUNNING);
+							workToStart.setState(CommWork.Status.RUNNING);
 							_requestWorkExecutorService.execute(workToStart.getFutureTask());
 						}
 
@@ -493,10 +517,10 @@ public final class CommManager {
 
 	}
 
-	/** A simple {@link Comparator} implementation for {@link Work} instances that wraps the Comparator provided by the current {@link PriorityManagementProvider}. */
-	private Comparator<Work> _workComparator = new Comparator<Work>() {
+	/** A simple {@link Comparator} implementation for {@link CommWork} instances that wraps the Comparator provided by the current {@link PriorityManagementProvider}. */
+	private Comparator<CommWork> _workComparator = new Comparator<CommWork>() {
 		@Override
-		public int compare(Work lhs, Work rhs) {
+		public int compare(CommWork lhs, CommWork rhs) {
 			if(lhs == null) { throw(new IllegalArgumentException("'lhs' can not be NULL")); }
 			if(rhs == null) { throw(new IllegalArgumentException("'rhs' can not be NULL")); }
 			return(CommManager.this._priorityManagmentProvider.getPriorityComparator().compare(lhs.getRequestPriority(), rhs.getRequestPriority()));
@@ -506,10 +530,10 @@ public final class CommManager {
 	/** An implementation of {@link Callable} that makes the actual network request and gets the response */
 	private class WorkCallable implements Callable<Response> {
 
-		private final Work _work;
+		private final CommWork _work;
 		private String _logPrefix = null;
 
-		private WorkCallable(Work work) {
+		private WorkCallable(CommWork work) {
 			if(work == null) { throw(new IllegalArgumentException("'work' can not be NULL")); }
 			this._work = work;
 		}

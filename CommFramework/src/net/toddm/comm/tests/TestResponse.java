@@ -109,7 +109,7 @@ public class TestResponse extends TestCase {
         assertNotNull(response.getMaxStaleFromHeaders());
         assertEquals(13000, (long)response.getMaxStaleFromHeaders());		
 	}
-	
+
 	public void testShouldNotCacheDueToHeaderDirective() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
