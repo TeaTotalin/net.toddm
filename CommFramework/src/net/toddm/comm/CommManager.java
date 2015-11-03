@@ -665,9 +665,22 @@ public final class CommManager {
 					//**************************************** 
 					// Establish the connection. Any configuration that must be done prior to connecting must go above.
 					urlConnection.connect();
-					//**************************************** 
-	
-					// Read the response
+					//****************************************
+
+				} catch(Exception e) {
+
+					if(_logger != null) { _logger.error(e, this._logPrefix); }
+
+					// Update the work state based on the exception
+					this.handleWorkUpdatesOnException(e);
+
+					// We are done (for now at least) with this work
+					return(null);
+				}
+
+				// Read the response
+				try {
+
 					if(urlConnection.getContentLength() > 0) {
 						int readCount;
 						byte[] data = new byte[512];
@@ -693,16 +706,11 @@ public final class CommManager {
 						}
 						buffer.flush();
 					}
-				
+
 				} catch(Exception e) {
 
+					// The content length header can lie causing content reading to explode, log and proceed as if there was no content
 					if(_logger != null) { _logger.error(e, this._logPrefix); }
-
-					// Update the work state based on the exception
-					this.handleWorkUpdatesOnException(e);
-
-					// We are done (for now at least) with this work
-					return(null);
 				}
 
 				// Construct the response instance
