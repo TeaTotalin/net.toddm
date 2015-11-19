@@ -42,8 +42,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.FutureTask;
 import java.util.zip.GZIPInputStream;
 
+import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
@@ -425,12 +427,20 @@ public final class CommManager {
 	 * A trust manager that trusts everything. This is for use when enabling HTTPS end-points 
 	 * that have bad certificates. This should generally only be used for development and testing.
 	 */
-	private static final TrustManager[] _TrustAllCertsManagers = new TrustManager[]{
+	private static final TrustManager[] _TrustAllCertsManagers = new TrustManager[] {
 	    new X509TrustManager() {
 	        public java.security.cert.X509Certificate[] getAcceptedIssuers() { return null; }
 	        public void checkClientTrusted(java.security.cert.X509Certificate[] certs, String authType) { }
 	        public void checkServerTrusted(java.security.cert.X509Certificate[] certs, String authType) { }
 	    }
+	};
+
+	/**
+	 * A host name verifier that allows all host names. This is for use when enabling HTTPS end-points 
+	 * that have bad certificates. This should generally only be used for development and testing.
+	 */
+	private static final HostnameVerifier _AllowAllHostnamesVerifier = new HostnameVerifier() {
+	    public boolean verify(String hostname, SSLSession session) { return(true); }
 	};
 
 	/**
@@ -595,6 +605,7 @@ public final class CommManager {
 					    SSLContext sslContext = SSLContext.getInstance("SSL");
 					    sslContext.init(null, _TrustAllCertsManagers, new java.security.SecureRandom());
 						((HttpsURLConnection)urlConnection).setSSLSocketFactory(sslContext.getSocketFactory());
+						((HttpsURLConnection)urlConnection).setHostnameVerifier(_AllowAllHostnamesVerifier);
 					} catch (Exception e) {
 						if(_logger != null) { _logger.error(e, "%1$s Disabling SSL cert checking failed", this._logPrefix); }
 					}
