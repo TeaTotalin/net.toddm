@@ -18,16 +18,21 @@ package net.toddm.cache;
 import java.util.Comparator;
 
 /**
- * A simple implementation of {@link Comparator} for {@link CacheEntry} that 
- * allows for sorting cache entries by their age based on creation time.
+ * A simple implementation of {@link Comparator} for {@link CacheEntry} that allows for 
+ * sorting cache entries first by their last use time and second by their last modified time.
+ * This is suitable for basic LRU implementation.
  * <p>
  * @author Todd S. Murchison
  */
-public class CacheEntryAgeComparator implements Comparator<CacheEntry> {
+public class CacheEntryLastUseComparator implements Comparator<CacheEntry> {
 
 	@Override
 	public int compare(CacheEntry antryA, CacheEntry entryB) {
-		return( (int) (entryB.getTimestampCreated() - antryA.getTimestampCreated()) );
+		int result = (int) (entryB.getTimestampUsed() - antryA.getTimestampUsed());
+		if(result == 0) {
+			result = (int) (entryB.getTimestampModified() - antryA.getTimestampModified());
+		}
+		return(result);
 	}
 
 }

@@ -422,7 +422,7 @@ public final class CommManager {
 	// Private helper classes
 
 	/**
-	 * A trust manager that trust everything. This is for use when enabling HTTPS end-points 
+	 * A trust manager that trusts everything. This is for use when enabling HTTPS end-points 
 	 * that have bad certificates. This should generally only be used for development and testing.
 	 */
 	private static final TrustManager[] _TrustAllCertsManagers = new TrustManager[]{

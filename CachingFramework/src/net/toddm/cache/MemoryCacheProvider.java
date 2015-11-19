@@ -18,8 +18,11 @@ package net.toddm.cache;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -34,9 +37,17 @@ public class MemoryCacheProvider implements CacheProvider {
 
 	private static final String _DefaultNamespace = "e98fa3ee-cb8d-4e37-8b43-adb04036031a";
 
+	// The larger the weight value the less likely to evict
+	@SuppressWarnings("serial")
+	private static final Map<CachePriority, Double> _PriorityToWeight = new HashMap<CachePriority, Double>(3) {{
+		put(CachePriority.HIGH,		1d);
+		put(CachePriority.NORMAL,	0.8);
+		put(CachePriority.LOW,		0.5);
+	}};
+
 	private final String _namespace;
-	private final CacheEntryAgeComparator _cacheEntryAgeComparator = new CacheEntryAgeComparator();
-	private final ConcurrentHashMap<String, CacheEntry> _keyToEntry = new ConcurrentHashMap<String, CacheEntry>();
+	private final CacheEntryLastUseComparator _cacheEntryLastUseComparator = new CacheEntryLastUseComparator();
+	private final ConcurrentHashMap<String, CacheEntryWithEvictionScore> _keyToEntry = new ConcurrentHashMap<String, CacheEntryWithEvictionScore>();
 	private final LoggingProvider _logger;
 
     private int _lruCap;
@@ -64,7 +75,10 @@ public class MemoryCacheProvider implements CacheProvider {
 	public boolean add(String key, String value, long ttl, long maxStale, String eTag, URI sourceUri, CachePriority priority) {
 
 		// The constructor used in the line below does argument validation
-		this._keyToEntry.put(this.getLookupKey(key), new CacheEntry(key, value, ttl, maxStale, eTag, sourceUri, priority));
+		CacheEntryWithEvictionScore newEntry = new CacheEntryWithEvictionScore(key, value, ttl, maxStale, eTag, sourceUri, priority);
+		this._keyToEntry.put(this.getLookupKey(key), newEntry);
+		this.updateEvictionScores(newEntry.getTimestampUsed());
+
 		if(this._logger != null) {
 			this._logger.debug("Cache entry added [key:%1$s ttl:%2$d maxStale:%3$d eTag:%4$s sourceUri:%5$s]", key, ttl, maxStale, eTag, sourceUri);
 		}
@@ -76,7 +90,10 @@ public class MemoryCacheProvider implements CacheProvider {
 	public boolean add(String key, byte[] value, long ttl, long maxStale, String eTag, URI sourceUri, CachePriority priority) {
 
 		// The constructor used in the line below does argument validation
-		this._keyToEntry.put(this.getLookupKey(key), new CacheEntry(key, value, ttl, maxStale, eTag, sourceUri, priority));
+		CacheEntryWithEvictionScore newEntry = new CacheEntryWithEvictionScore(key, value, ttl, maxStale, eTag, sourceUri, priority);
+		this._keyToEntry.put(this.getLookupKey(key), newEntry);
+		this.updateEvictionScores(newEntry.getTimestampUsed());
+
 		if(this._logger != null) {
 			this._logger.debug("Cache entry added [key:%1$s ttl:%2$d maxStale:%3$d eTag:%4$s sourceUri:%5$s]", key, ttl, maxStale, eTag, sourceUri);
 		}
@@ -87,9 +104,13 @@ public class MemoryCacheProvider implements CacheProvider {
 	@Override
 	public CacheEntry get(String key, boolean allowExpired) {
 		if((key == null) || (key.length() <= 0)) { throw(new IllegalArgumentException("'key' can not be NULL or empty")); }
-		CacheEntry result = this._keyToEntry.get(this.getLookupKey(key));
-		if((result != null) && (!allowExpired) && (result.hasExpired())) {
-			return(null);
+		CacheEntryWithEvictionScore result = this._keyToEntry.get(this.getLookupKey(key));
+		if(result != null) {
+			if((!allowExpired) && (result.hasExpired())) {
+				return(null);
+			}
+			result.setTimestampUsed(System.currentTimeMillis());
+			this.updateEvictionScores(result.getTimestampUsed());
 		}
 		return(result);
 	}
@@ -97,13 +118,23 @@ public class MemoryCacheProvider implements CacheProvider {
 	/** {@inheritDoc} */
 	@Override
 	public List<CacheEntry> getAll(boolean allowExpired) {
+		return(this.getAll(allowExpired, true));
+	}
+
+	private List<CacheEntry> getAll(boolean allowExpired, boolean updateUsedTime) {
+		long loadTime = System.currentTimeMillis();
 		List<CacheEntry> results = new ArrayList<CacheEntry>(this._keyToEntry.size());
-		for(CacheEntry entry : this._keyToEntry.values()) {
+		for(CacheEntryWithEvictionScore entry : this._keyToEntry.values()) {
 			if(allowExpired) {
+				if(updateUsedTime) { entry.setTimestampUsed(loadTime); }
 				results.add(entry);
 			} else if(!entry.hasExpired()) {
+				if(updateUsedTime) { entry.setTimestampUsed(loadTime); }
 				results.add(entry);
 			}
+		}
+		if((results.size() > 0) && (updateUsedTime)) {
+			this.updateEvictionScores(loadTime);
 		}
 		return(results);
 	}
@@ -114,7 +145,7 @@ public class MemoryCacheProvider implements CacheProvider {
 		if(allowExpired) {
 			return(this._keyToEntry.size());
 		} else {
-			return(this.getAll(allowExpired).size());
+			return(this.getAll(allowExpired, false).size());
 		}
 	}
 
@@ -125,7 +156,7 @@ public class MemoryCacheProvider implements CacheProvider {
 		if(allowExpired) {
 			return(this._keyToEntry.containsKey(this.getLookupKey(key)));
 		} else {
-			CacheEntry entry = this._keyToEntry.get(this.getLookupKey(key));
+			CacheEntryWithEvictionScore entry = this._keyToEntry.get(this.getLookupKey(key));
 			return((entry != null) && (!entry.hasExpired()));
 		}
 	}
@@ -145,14 +176,26 @@ public class MemoryCacheProvider implements CacheProvider {
 		return(true);
 	}
 
-	/** {@inheritDoc} */
+	/**
+	 * {@inheritDoc}
+	 * 
+	 * This implementation uses "cache priority" and "last used time" to 
+	 * provide eviction based on a basic normalized linear weighting algorithm:
+	 * <pre>
+     *   Sx = (Wx * ( (Fx - Fmin) / (Fmax - Fmin) ))
+     * </pre>
+	 */
 	@Override
 	public boolean trimLru() {
-		List<CacheEntry> entries = this.getAll(true);
-		if(entries.size() > this._lruCap) {
-			Collections.sort(entries, this._cacheEntryAgeComparator);
-			for(int i = this._lruCap; i < entries.size(); i++) {
-				this.remove(entries.get(i).getKey());
+		if(this._keyToEntry.size() > this._lruCap) {
+
+			// Sort all cache entries based on their eviction scores
+			List<CacheEntryWithEvictionScore> sortedEntries = new ArrayList<CacheEntryWithEvictionScore>(this._keyToEntry.values());
+			Collections.sort(sortedEntries);
+
+			// Remove entries that are past the LRU size
+			for(int i = this._lruCap; i < sortedEntries.size(); i++) {
+				this.remove(sortedEntries.get(i).getKey());
 			}
 		}
 		return(true);
@@ -168,6 +211,108 @@ public class MemoryCacheProvider implements CacheProvider {
 	@Override
 	public int getLruCap() {
 		return(this._lruCap);
+	}
+
+	/**
+	 * Returns the oldest "last use" time found in the cache, or the current time if the cache is empty.
+	 * Time is returned as an epoch time in milliseconds.
+	 */
+	private long getOldestUse() {
+
+		// Sort all cache entries based on their last use time
+		long result = System.currentTimeMillis();
+		if(this._keyToEntry.size() > 0) {
+			List<CacheEntryWithEvictionScore> sortedEntries = new ArrayList<CacheEntryWithEvictionScore>(this._keyToEntry.values());
+			Collections.sort(sortedEntries, this._cacheEntryLastUseComparator);
+			result = sortedEntries.get(sortedEntries.size() - 1).getTimestampUsed();
+		}
+		return(result);
+	}
+
+	private void updateEvictionScores(long newestUseInCache) {
+		if(this._logger != null) { this._logger.debug("######### UPDATING EVICTION SCORES #########"); }
+		long oldestUseInCache = this.getOldestUse();
+		for(CacheEntryWithEvictionScore entry : this._keyToEntry.values()) {
+			entry.updateEvictionScore(newestUseInCache, oldestUseInCache);
+
+			if(this._logger != null) {
+				this._logger.debug("## %.12f = (%.12f * (1 + (%d / %d))) [key:%s]", 
+						entry.getEvictionScore(), 
+						_PriorityToWeight.get( entry.getPriority() ), 
+						(entry.getTimestampUsed() - oldestUseInCache), 
+						(newestUseInCache - oldestUseInCache),
+						entry.getKey());
+			}
+		}
+	}
+
+	/**
+	 * A simple sub-class of {@link CacheEntry} that provides an eviction score for the entry.
+	 * Instances of this class are comparable, sortable, etc. based on their eviction scores.
+	 */
+	private class CacheEntryWithEvictionScore extends CacheEntry implements Comparable<CacheEntryWithEvictionScore>, Comparator<CacheEntryWithEvictionScore> {
+
+		private double _evictionScore;
+
+		public CacheEntryWithEvictionScore(String key, String value, long ttl, long maxStale, String eTag, URI sourceUri, CachePriority priority) {
+			super(key, value, ttl, maxStale, eTag, sourceUri, priority);
+
+			// Calculate an initial eviction score (to avoid timing problems with access to our ConcurrentHashMap later)
+			this.updateEvictionScore(this.getTimestampUsed(), MemoryCacheProvider.this.getOldestUse());
+		}
+
+		public CacheEntryWithEvictionScore(String key, byte[] value, long ttl, long maxStale, String eTag, URI sourceUri, CachePriority priority) {
+			super(key, value, ttl, maxStale, eTag, sourceUri, priority);
+
+			// Calculate an initial eviction score (to avoid timing problems with access to our ConcurrentHashMap later)
+			this.updateEvictionScore(this.getTimestampUsed(), MemoryCacheProvider.this.getOldestUse());
+		}
+
+		double getEvictionScore() { return(this._evictionScore); }
+
+		/**
+	     * Updates this entrie's eviction scores using a basic normalized linear weighting algorithm:
+	     *   Sx = (Wx * ( (Fx -Fmin) / (Fmax - Fmin) ))
+	     *   <ul>
+	     *     <li>Sx is the eviction score for the current entry</li>
+	     *     <li>Wx is an arbitrarily assigned weight (our priority) for the current entry</li>
+	     *     <li>Fx is the value (last use timestamp) for the current entry</li>
+	     *     <li>Fmax is the largest available value of F (most recent use timestamp) currently in the cache.</li>
+	     *     <li>Fmin is the smallest available value of F (most recent use timestamp) currently in the cache.</li>
+	     *   </ul>
+		 */
+		void updateEvictionScore(long newestUseInCache, long oldestUseInCache) {
+			double normalizedFactor = 1d;
+			if(newestUseInCache != oldestUseInCache) {
+				// Because we are normalizing time we will normalize on the scaled range of time represented in the cache
+				normalizedFactor = (double)(
+						(double)(this.getTimestampUsed() - oldestUseInCache) / 
+						(double)(newestUseInCache - oldestUseInCache)
+					);
+			}
+			this._evictionScore = (double)( _PriorityToWeight.get(this.getPriority()) * (1 + normalizedFactor ) );
+		}
+
+		/** {@inheritDoc} */
+		@Override
+		public int compareTo(CacheEntryWithEvictionScore o) {
+			// Returns a negative integer, zero, or a positive integer as this object is less than, equal to, or greater than the specified object.
+			return(this.compare(this, o));
+		}
+
+		/** {@inheritDoc} */
+		@Override
+		public int compare(CacheEntryWithEvictionScore antryA, CacheEntryWithEvictionScore entryB) {
+			// Returns a negative integer, zero, or a positive integer as the first argument is less than, equal to, or greater than the second.
+			double scoreDiff = entryB.getEvictionScore() - antryA.getEvictionScore();
+			if(scoreDiff < 0) {
+				return(-1);
+			} else if(scoreDiff > 0) {
+				return(1);
+			} else {
+				return(0);
+			}
+		}
 	}
 
 }

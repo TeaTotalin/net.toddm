@@ -35,6 +35,7 @@ public class CacheEntry {
 	private final URI _sourceUri;
 	private final Long _timestampCreated;
 	private final Long _timestampModified;
+	private Long _timestampUsed;
 	private final CachePriority _priority;
 
 	/**
@@ -64,6 +65,7 @@ public class CacheEntry {
 		this._sourceUri = sourceUri;
 		this._timestampCreated = System.currentTimeMillis();
 		this._timestampModified = this._timestampCreated;
+		this._timestampUsed = this._timestampCreated;
 		this._priority = priority;
 	}
 
@@ -94,6 +96,7 @@ public class CacheEntry {
 		this._sourceUri = sourceUri;
 		this._timestampCreated = System.currentTimeMillis();
 		this._timestampModified = this._timestampCreated;
+		this._timestampUsed = this._timestampCreated;
 		this._priority = priority;
 	}
 
@@ -110,9 +113,22 @@ public class CacheEntry {
 	 * @param sourceUri An optional source URI. This can be NULL if you do not make use of URIs.
 	 * @param timestampCreated The epoch representation of the creation timestamp for this cache entry.
 	 * @param timestampModified The epoch representation of the creation timestamp for this cache entry.
+	 * @param timestampUsed The epoch representation of the last time this cache entry was loaded from cache.
 	 * @param priority An indication of relative priority for this cache entry. Depending on implementation, cache providers may use this as a hint when evicting records.
 	 */
-	public CacheEntry(String key, String valueString, byte[] valueBytes, long ttl, long maxStale, String eTag, URI sourceUri, long timestampCreated, long timestampModified, CachePriority priority) {
+	public CacheEntry(
+			String key, 
+			String valueString, 
+			byte[] valueBytes, 
+			long ttl, 
+			long maxStale, 
+			String eTag, 
+			URI sourceUri, 
+			long timestampCreated, 
+			long timestampModified, 
+			long timestampUsed, 
+			CachePriority priority) 
+	{
 
 		// Validate parameters
 		if((key == null) || (key.length() <= 0)) { throw(new IllegalArgumentException("'key' can not be NULL or empty")); }
@@ -134,6 +150,7 @@ public class CacheEntry {
 		this._sourceUri = sourceUri;
 		this._timestampCreated = timestampCreated;
 		this._timestampModified = timestampModified;
+		this._timestampUsed = timestampUsed;
 		this._priority = priority;
 	}
 
@@ -163,6 +180,17 @@ public class CacheEntry {
 
 	/** Returns an epoch representation of the most recent time that this cache entry was updated. */
 	public Long getTimestampModified() { return(this._timestampModified); }
+
+	/** Returns an epoch representation of the most recent time that this cache entry was returned from the cache. */
+	public Long getTimestampUsed() { return(this._timestampUsed); }
+
+	/**
+	 *  Updates the last time this cache entry was loaded from the cache provider.
+	 * @param value An epoch representation of the most recent time that this cache entry was returned from the cache.
+	 */
+	void setTimestampUsed(long value) {
+		this._timestampUsed = value;
+	}
 
 	/**
 	 * Returns the caching priority value for this cache entry.

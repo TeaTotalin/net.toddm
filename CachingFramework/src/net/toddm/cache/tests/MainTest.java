@@ -69,7 +69,6 @@ public class MainTest extends TestCase {
 		cacheProvider.add("key2", "value2", 1000000L, 1000001L, null, null, CachePriority.NORMAL);
 		Thread.sleep(2);
 		entry = cacheProvider.get("key2", true);
-		assertEquals(2, cacheProvider.getAll(true).size());
 		assertEquals(2, cacheProvider.size(true));
 		assertNotNull(entry);
 		assertFalse(entry.hasExpired());
@@ -82,21 +81,18 @@ public class MainTest extends TestCase {
 		Thread.sleep(2);
 		entry = cacheProvider.get("key3", true);
 		assertNotNull(entry);
-		assertEquals(3, cacheProvider.getAll(true).size());
 		assertEquals(3, cacheProvider.size(true));
 
 		cacheProvider.add("key4", "value4", 1000000L, 0L, null, null, CachePriority.NORMAL);
 		Thread.sleep(2);
 		entry = cacheProvider.get("key4", true);
 		assertNotNull(entry);
-		assertEquals(4, cacheProvider.getAll(true).size());
 		assertEquals(4, cacheProvider.size(true));
 
 		assertTrue(cacheProvider.containsKey("key3", true));
 		cacheProvider.remove("key3");
 		entry = cacheProvider.get("key3", true);
 		assertNull(entry);
-		assertEquals(3, cacheProvider.getAll(true).size());
 		assertEquals(3, cacheProvider.size(true));
 		assertFalse(cacheProvider.containsKey("key3", true));
 
@@ -150,6 +146,68 @@ public class MainTest extends TestCase {
 
 		cacheProvider.removeAll();
 		assertEquals(0, cacheProvider.getAll(true).size());
+		assertEquals(0, cacheProvider.size(true));
+		
+		validateLru(cacheProvider);
+		validateEvictionScores(cacheProvider);
+	}
+
+	public static void validateLru(CacheProvider cacheProvider) throws Exception {
+
+		cacheProvider.removeAll();
+		assertEquals(0, cacheProvider.size(true));
+
+		cacheProvider.add("key1", "value1", 1000L, 0L, null, null, CachePriority.NORMAL);
+		Thread.sleep(10);
+		cacheProvider.add("key2", "value2", 1000L, 0L, null, null, CachePriority.NORMAL);
+		Thread.sleep(10);
+		cacheProvider.add("key3", "value3", 1000L, 0L, null, null, CachePriority.NORMAL);
+		Thread.sleep(10);
+		
+		cacheProvider.get("key2", true);
+
+		cacheProvider.setLruCap(1);
+		cacheProvider.trimLru();
+		assertEquals(1, cacheProvider.size(true));
+		
+		// Validate that, as the most recently accessed cache entry, "key2" is the entry left after LRU capping
+		CacheEntry entry = cacheProvider.get("key2", true);
+		assertNotNull(entry);
+
+		cacheProvider.removeAll();
+		assertEquals(0, cacheProvider.size(true));
+	}
+
+	public static void validateEvictionScores(CacheProvider cacheProvider) throws Exception {
+		cacheProvider.removeAll();
+		assertEquals(0, cacheProvider.size(true));
+
+		cacheProvider.add("esKey1", "esValue1", 1000L, 0L, null, null, CachePriority.HIGH);
+		Thread.sleep(100);
+		cacheProvider.add("esKey2", "esValue2", 1000L, 0L, null, null, CachePriority.NORMAL);
+		Thread.sleep(100);
+		cacheProvider.add("esKey3", "esValue3", 1000L, 0L, null, null, CachePriority.LOW);
+		Thread.sleep(100);
+		cacheProvider.add("esKey4", "esValue4", 1000L, 0L, null, null, CachePriority.LOW);
+		Thread.sleep(100);
+		cacheProvider.add("esKey5", "esValue5", 1000L, 0L, null, null, CachePriority.LOW);
+		Thread.sleep(100);
+		cacheProvider.add("esKey6", "esValue6", 1000L, 0L, null, null, CachePriority.HIGH);
+		Thread.sleep(100);
+		cacheProvider.add("esKey7", "esValue7", 1000L, 0L, null, null, CachePriority.NORMAL);
+		Thread.sleep(100);
+
+		cacheProvider.setLruCap(3);
+		cacheProvider.trimLru();
+		assertEquals(3, cacheProvider.size(true));
+
+		// Validate that even though they are the oldest entries, the normal and high priority 
+		// entries are the ones that are left and the low priority entries are gone.
+		assertTrue(cacheProvider.containsKey("esKey6", true));
+		assertTrue(cacheProvider.containsKey("esKey1", true));
+		assertTrue(cacheProvider.containsKey("esKey7", true));
+
+		cacheProvider.removeAll();
 		assertEquals(0, cacheProvider.size(true));
 	}
 
