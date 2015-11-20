@@ -13,26 +13,11 @@
 // *  See the License for the specific language governing permissions and
 // *  limitations under the License.
 // ***************************************************************************
-package net.toddm.cache;
-
-import java.util.Comparator;
+package net.toddm.comm.android;
 
 /**
- * A simple implementation of {@link Comparator} for {@link CacheEntry} that allows for 
- * sorting cache entries first by their last use time and second by their last modified time.
- * This is suitable for basic LRU implementation.
+ * Allows running Comm Framework test cases specifically on Android.
  * <p>
  * @author Todd S. Murchison
  */
-public class CacheEntryLastUseComparator implements Comparator<CacheEntry> {
-
-	@Override
-	public int compare(CacheEntry entryA, CacheEntry entryB) {
-		int result = (int) (entryB.getTimestampUsed() - entryA.getTimestampUsed());
-		if(result == 0) {
-			result = (int) (entryB.getTimestampModified() - entryA.getTimestampModified());
-		}
-		return(result);
-	}
-
-}
+public class TestCommMain extends net.toddm.comm.tests.TestMain { }

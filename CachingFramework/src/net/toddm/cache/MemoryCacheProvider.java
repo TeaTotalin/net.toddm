@@ -302,9 +302,9 @@ public class MemoryCacheProvider implements CacheProvider {
 
 		/** {@inheritDoc} */
 		@Override
-		public int compare(CacheEntryWithEvictionScore antryA, CacheEntryWithEvictionScore entryB) {
+		public int compare(CacheEntryWithEvictionScore entryA, CacheEntryWithEvictionScore entryB) {
 			// Returns a negative integer, zero, or a positive integer as the first argument is less than, equal to, or greater than the second.
-			double scoreDiff = entryB.getEvictionScore() - antryA.getEvictionScore();
+			double scoreDiff = entryB.getEvictionScore() - entryA.getEvictionScore();
 			if(scoreDiff < 0) {
 				return(-1);
 			} else if(scoreDiff > 0) {

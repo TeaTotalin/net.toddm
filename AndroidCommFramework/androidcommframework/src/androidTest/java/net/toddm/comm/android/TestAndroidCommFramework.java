@@ -31,8 +31,8 @@ import net.toddm.cache.android.DBCacheProvider;
  * <p>
  * @author Todd S. Murchison
  */
-public class AndroidCommFrameworkTest extends ApplicationTestCase<Application> {
-  public AndroidCommFrameworkTest() { super(Application.class); }
+public class TestAndroidCommFramework extends ApplicationTestCase<Application> {
+  public TestAndroidCommFramework() { super(Application.class); }
 
   public void testDBCacheProvider() throws Exception {
 
