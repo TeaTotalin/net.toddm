@@ -27,7 +27,7 @@ public class RetryProfile {
 	private final long _retryAfterMilliseconds;
 
 	/** Constructs an instance of {@link RetryProfile} with the given values. */
-	protected RetryProfile(boolean shouldRetry, long retryAfterMilliseconds) {
+	public RetryProfile(boolean shouldRetry, long retryAfterMilliseconds) {
 		this._shouldRetry = shouldRetry;
 		this._retryAfterMilliseconds = retryAfterMilliseconds;
 	}
