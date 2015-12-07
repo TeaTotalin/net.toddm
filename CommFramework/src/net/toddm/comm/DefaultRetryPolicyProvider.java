@@ -71,30 +71,34 @@ public class DefaultRetryPolicyProvider implements RetryPolicyProvider {
 		if(request == null) { throw(new IllegalArgumentException("'request' can not be NULL")); }
 		if(error == null) { throw(new IllegalArgumentException("'error' can not be NULL")); }
 
-		// Decide if we should retry the request based on the number of retries already attempted and the Exception type
+		// Do not attempt request retry on error for requests that are not idempotent
 		boolean shouldRetry = false;
-		if(	(request.getRetryCountFromFailure() < _MaxErrorRetries) && 
-			(	error instanceof ConnectException || 
-				error instanceof SocketException || 
-				error instanceof SocketTimeoutException || 
-				error instanceof UnknownHostException || 
-				error instanceof BindException || 
-				error instanceof NoRouteToHostException || 
-				error instanceof PortUnreachableException || 
-				error instanceof UnknownServiceException || 
-				error instanceof HttpRetryException || 
-				error instanceof ProtocolException || 
-				error instanceof SSLProtocolException || 
-				error instanceof SSLKeyException || 
-				error instanceof SSLPeerUnverifiedException || 
+		if(request.isIdempotent()) {
 
-				// Most common cause of SSLHandshakeException seems to be java.security.cert.CertificateException for a bad cert, not something likely to clear up short term.
-				error.getClass().equals(SSLException.class) || 
-				( (error instanceof SSLHandshakeException) && ((error.getCause() == null) || (!(error.getCause() instanceof CertificateException))) )
-			) )
-		{
-			shouldRetry = true;
-			if(this._logger != null) { this._logger.debug("Recommending request %1$d be retried in 3 seconds due to %2$s", request.getId(), error.getClass().getSimpleName()); }
+			// Decide if we should retry the request based on the number of retries already attempted and the Exception type
+			if(	(request.getRetryCountFromFailure() < _MaxErrorRetries) && 
+				(	error instanceof ConnectException || 
+					error instanceof SocketException || 
+					error instanceof SocketTimeoutException || 
+					error instanceof UnknownHostException || 
+					error instanceof BindException || 
+					error instanceof NoRouteToHostException || 
+					error instanceof PortUnreachableException || 
+					error instanceof UnknownServiceException || 
+					error instanceof HttpRetryException || 
+					error instanceof ProtocolException || 
+					error instanceof SSLProtocolException || 
+					error instanceof SSLKeyException || 
+					error instanceof SSLPeerUnverifiedException || 
+	
+					// Most common cause of SSLHandshakeException seems to be java.security.cert.CertificateException for a bad cert, not something likely to clear up short term.
+					error.getClass().equals(SSLException.class) || 
+					( (error instanceof SSLHandshakeException) && ((error.getCause() == null) || (!(error.getCause() instanceof CertificateException))) )
+				) )
+			{
+				shouldRetry = true;
+				if(this._logger != null) { this._logger.debug("Recommending request %1$d be retried in 3 seconds due to %2$s", request.getId(), error.getClass().getSimpleName()); }
+			}
 		}
 
 		// For Exception cases we will use a rapid retry interval of 3 seconds (hope for transient network blip)

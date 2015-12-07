@@ -76,6 +76,7 @@ class CommWork implements Future<Response>, Work {
 			Request.RequestMethod method, 
 			byte[] postData, 
 			Map<String, String> headers, 
+			boolean isIdempotent, 
 			StartingPriority requestPriority, 
 			CachePriority cachingPriority, 
 			CacheBehavior cachingBehavior, 
@@ -94,7 +95,7 @@ class CommWork implements Future<Response>, Work {
 
 		// Set our data members
 		this._state = Status.CREATED;
-		this._request = new Request(uri, method, postData, headers);
+		this._request = new Request(uri, method, postData, headers, isIdempotent);
 		this._requestPriority = new Priority(this, requestPriority);
 		this._cachingPriority = cachingPriority;
 		this._cachingBehavior = cachingBehavior;
@@ -115,7 +116,38 @@ class CommWork implements Future<Response>, Work {
 
 	/** Returns TRUE if the result of this work should participate in caching, FALSE otherwise. */
 	protected boolean shouldCache() {
-		return(!CacheBehavior.DO_NOT_CACHE.equals(this._cachingBehavior));
+
+		// If the client has requested no caching do not cache
+		if(CacheBehavior.DO_NOT_CACHE.equals(this._cachingBehavior)) {
+			return(false);
+		}
+
+		if(this._response != null) {
+
+			// If the response indicates a "cache still valid" response then we are already implicitly caching
+			if(this._response.getResponseCode() == 304) {
+				return(true);
+			}
+
+			// If the response contains the "no-cache" directive do not cache
+			if(this._response.shouldNotCacheDueToNoCacheDirective()) {
+				return(false);
+			}
+
+			if( (CacheBehavior.SERVER_DIRECTED_CACHE.equals(this._cachingBehavior)) && (this._response.getTtlFromHeaders() == null) ) {
+
+				// We are only supposed to cache as directed by the server and the server has not provided a TTL, so do not cache
+				return(false);
+			}
+
+		} else if (CacheBehavior.SERVER_DIRECTED_CACHE.equals(this._cachingBehavior)) {
+
+			// We have no response and we are only supposed to cache as directed by the server, so do not cache
+			return(false);
+		}
+
+		// Default to caching
+		return(true);
 	}
 
 	/** Returns the current state of this {@link CommWork} instance */

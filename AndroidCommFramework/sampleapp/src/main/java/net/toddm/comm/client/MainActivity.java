@@ -101,7 +101,7 @@ public class MainActivity extends ActionBarActivity {
     try {
 
       // Submit the test request to the comm manager and wait for the response
-      Work work = this._commManager.enqueueWork(new URI("http://www.toddm.net/"), Request.RequestMethod.GET, null, null, Priority.StartingPriority.MEDIUM, CachePriority.LOW, CacheBehavior.NORMAL);
+      Work work = this._commManager.enqueueWork(new URI("http://www.toddm.net/"), Request.RequestMethod.GET, null, null, true, Priority.StartingPriority.MEDIUM, CachePriority.LOW, CacheBehavior.NORMAL);
       Response response = work.get();
       if(response.getResponseCode() != 200) {
         log(String.format(Locale.US, "Test request failed [response code: %1$d]", response.getResponseCode()));

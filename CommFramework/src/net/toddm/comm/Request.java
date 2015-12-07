@@ -24,6 +24,8 @@ import java.util.Map;
 import java.util.TreeMap;
 
 /**
+ * Represents a network request being managed by the Comm Framework.
+ * <p>
  * @author Todd S. Murchison
  */
 public class Request {
@@ -50,6 +52,7 @@ public class Request {
 	private final Map<String, String> _headers;
 	private final Map<String, List<String>> _queryParameters;
 	private final Integer _id;
+	private final boolean _isIdempotent;
 
 	private int _redirectCount = 0;
 	private int _retryCountFromFailure = 0;
@@ -62,12 +65,14 @@ public class Request {
 	 * @param method The HTTP method for the request ({@link RequestMethod}).
 	 * @param postData <b>OPTIONAL</b>. Can be NULL. A map of data to be sent as the POST body content. The values should NOT yet be encoded.
 	 * @param headers A {@link Map} of any HTTP header values that should be sent as part of the request.
+	 * @param isIdempotent A flag indicating if this request is considered to be an idempotent request. Retry policy provider implementations will often not want to retry non-idempotent requests on error.
 	 */
 	protected Request(
 			URI uri, 
 			RequestMethod method, 
 			byte[] postData, 
-			Map<String, String> headers) 
+			Map<String, String> headers,
+			boolean isIdempotent) 
 	{
 
 		// Validate parameters
@@ -86,6 +91,7 @@ public class Request {
 		this._queryParameters = Request.parseQueryParameters(normalizedUri, "UTF-8");
 		this._postData = postData;
 		this._headers = headers;
+		this._isIdempotent = isIdempotent;
 
 		// Calculate the ID for this request
 		this._id = this.calculateId();
@@ -104,6 +110,14 @@ public class Request {
 	/** Returns the headers of this {@link Request} instance or <b>null</b> if there are none. */
 	public Map<String, String> getHeaders() {
 		return(this._headers);
+	}
+
+	/**
+	 * Returns a flag indicating if this request is considered to be an idempotent request.
+	 * Retry policy provider implementations will often not want to retry non-idempotent request on error.
+	 */
+	public boolean isIdempotent() {
+		return(this._isIdempotent);
 	}
 
 	/** Returns the most recent URI to be used for this {@link Request} instance. */

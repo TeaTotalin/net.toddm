@@ -30,6 +30,8 @@ import java.util.Map;
 import net.toddm.cache.LoggingProvider;
 
 /**
+ * Represents a response resulting from an attempt to process a {@link Request} instance.
+ * <p>
  * @author Todd S. Murchison
  */
 public class Response implements Serializable {
@@ -186,7 +188,7 @@ public class Response implements Serializable {
 	 * If the Cache-Control headers of this {@link Response} instance contain the "no-cache" 
 	 * directive <b>true</b> is returned, otherwise <b>false</b> is returned.
 	 */
-	public boolean shouldNotCacheDueToHeaderDirective() {
+	public boolean shouldNotCacheDueToNoCacheDirective() {
 		Map<String, String> cacheControlDirectives = this.parseCacheControlHeader();
 		return(cacheControlDirectives.containsKey("no-cache"));
 	}
@@ -243,7 +245,7 @@ public class Response implements Serializable {
 		}
 		return(eTag);
 	}
-	
+
 	/**
 	 * If this {@link Response} instance contains a Cache-Control header this method parses it into name-value pairs and returns them 
 	 * as a map. Any cache control directives that do not have a value (such as "no-cache") are added to the map with a null value.

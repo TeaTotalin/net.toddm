@@ -39,11 +39,17 @@ public class TestDefaultRetryPolicyProvider extends TestCase {
 		
 		DefaultRetryPolicyProvider retryPolicyProvider = new DefaultRetryPolicyProvider(new DefaultLogger());
 
+		// Test that an idempotent request will get retried for SocketTimeoutException
 		RetryProfile retryProfile = retryPolicyProvider.shouldRetry(new RequestStub(), new SocketTimeoutException());
 		assertTrue(retryProfile.shouldRetry());
 		assertEquals(3000, retryProfile.getRetryAfterMilliseconds());
 
+		// Test that an idempotent request will NOT get retried for NullPointerException
 		retryProfile = retryPolicyProvider.shouldRetry(new RequestStub(), new NullPointerException());
+		assertFalse(retryProfile.shouldRetry());
+
+		// Test that requests flagged as not idempotent do not get retried on error
+		retryProfile = retryPolicyProvider.shouldRetry(new RequestStub(false), new SocketTimeoutException());
 		assertFalse(retryProfile.shouldRetry());
 	}
 
@@ -69,7 +75,7 @@ public class TestDefaultRetryPolicyProvider extends TestCase {
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
 
-		Work work = commManager.enqueueWork(new URI("http://httpbin.org/status/503"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/status/503"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
         assertNotNull(work);
 
         Response response = work.get();
@@ -84,7 +90,7 @@ public class TestDefaultRetryPolicyProvider extends TestCase {
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
 
-		Work work = commManager.enqueueWork(new URI("http://httpbin.org/status/202"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/status/202"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
         assertNotNull(work);
 
         Response response = work.get();
@@ -109,8 +115,11 @@ public class TestDefaultRetryPolicyProvider extends TestCase {
 	/** A testing stub class for {@link Request}. */
 	private class RequestStub extends Request {
 		public RequestStub() throws URISyntaxException {
-			super(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null);
-		}		
+			super(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, true);
+		}
+		public RequestStub(boolean isIdempotent) throws URISyntaxException {
+			super(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, isIdempotent);
+		}
 	};
 
 }

@@ -36,7 +36,7 @@ public class TestSSL extends TestCase {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
-		Work work = commManager.enqueueWork(new URI("https://httpbin.org/status/200"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		Work work = commManager.enqueueWork(new URI("https://httpbin.org/status/200"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
         assertNotNull(work);
 
         Response response = work.get();
@@ -59,7 +59,7 @@ public class TestSSL extends TestCase {
 				.setLoggingProvider(new DefaultLogger())
 				.create();
 
-		Work work = commManagerNoCerts.enqueueWork(new URI("https://testssl-expire.disig.sk/index.en.html"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		Work work = commManagerNoCerts.enqueueWork(new URI("https://testssl-expire.disig.sk/index.en.html"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
         assertNotNull(work);
         Response response = work.get();
         assertNotNull(response);
@@ -76,7 +76,7 @@ public class TestSSL extends TestCase {
 				.setLoggingProvider(new DefaultLogger())
 				.create();
 
-		work = commManagerWithCerts.enqueueWork(new URI("https://testssl-expire.disig.sk/index.en.html"), RequestMethod.GET, null, null, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		work = commManagerWithCerts.enqueueWork(new URI("https://testssl-expire.disig.sk/index.en.html"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
         assertNotNull(work);
         response = work.get();
         assertNull(response);

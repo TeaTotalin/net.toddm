@@ -159,6 +159,7 @@ public final class CommManager {
 	 * @param method The HTTP method of the request to work on.
 	 * @param postData <b>[OPTIONAL]</b> Can be NULL. The POST data of the request to work on.
 	 * @param headers <b>[OPTIONAL]</b> Can be NULL. The request headers of the request to work on.
+	 * @param isIdempotent A flag indicating if this request is considered to be an idempotent request. Retry policy provider implementations will often not want to retry non-idempotent requests on error.
 	 * @param requestPriority The priority of this request work relative to other request work.
 	 * @param cachingPriority A hint to the caching provider (if there is one) of the relative priority of the cache entry generated for this response.
 	 * @param cachingBehavior Indicates what caching behavior should be used for the results of the enqueued work.
@@ -168,13 +169,14 @@ public final class CommManager {
 			Request.RequestMethod method, 
 			byte[] postData, 
 			Map<String, String> headers, 
+			boolean isIdempotent, 
 			StartingPriority requestPriority, 
 			CachePriority cachingPriority,
 			CacheBehavior cachingBehavior) 
 	{
 		// The CommWork constructor call below will validate all the arguments
 		Work resultWork = null;
-		CommWork newWork = new CommWork(uri, method, postData, headers, requestPriority, cachingPriority, cachingBehavior, this._logger);
+		CommWork newWork = new CommWork(uri, method, postData, headers, isIdempotent, requestPriority, cachingPriority, cachingBehavior, this._logger);
 		if(this._logger != null) { this._logger.debug("[thread:%1$d] enqueueWork() start", Thread.currentThread().getId()); }
 
 		// Check cache to see if we already have usable results for this request
@@ -858,7 +860,7 @@ public final class CommManager {
 				this._work.setState(Status.COMPLETED);
 				if(_logger != null) { _logger.info("[thread:%1$d] handleWorkUpdatesOnResponse() Returning cached results post 304 [id:%2$d]", Thread.currentThread().getId(), this._work.getId()); }
 
-			} else if((this._work.shouldCache()) && (CommManager.this._cacheProvider != null) && (response.isSuccessful()) && (!response.shouldNotCacheDueToHeaderDirective())) {
+			} else if((this._work.shouldCache()) && (CommManager.this._cacheProvider != null) && (response.isSuccessful())) {
 
 				// ************ CACHE ADD ************
 				byte[] responseObjBytes = null;
