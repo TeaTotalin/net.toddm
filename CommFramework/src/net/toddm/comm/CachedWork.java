@@ -94,10 +94,6 @@ class CachedWork implements Work {
 
 	/** {@inheritDoc} */
 	@Override
-	public boolean cancel(boolean interruptAllowed) { return(false); }
-
-	/** {@inheritDoc} */
-	@Override
 	public boolean isDone() { return(true); }
 
 	/** {@inheritDoc} */

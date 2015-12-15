@@ -39,7 +39,7 @@ import net.toddm.comm.Priority.StartingPriority;
  * <p>
  * @author Todd S. Murchison
  */
-class CommWork implements Future<Response>, Work {
+class CommWork implements Work {
 
 	/** An set of possible states that work can be in */
 	public enum Status {
@@ -233,15 +233,25 @@ class CommWork implements Future<Response>, Work {
 	//--------------------------------------------------------------------------
 	// Future interface for wrapping underlying FutureTask
 
-	/** {@inheritDoc} */
-	@Override
-	public boolean cancel(boolean interruptAllowed) {
-		// TODO: Cancel needs to be done via the CommManager (also return value meaning is incorrect with this implementation)
-		boolean cancelled = true;
-		for(FutureTask<Response> future : this._futureTasks) {
-			cancelled = cancelled && future.cancel(interruptAllowed);
+	/**
+	 * If this {@link CommWork} instance is not already done processing this method updates the state to {@link Status#CANCELLED} 
+	 * and attempts to cancel execution of any underlying {@link FutureTask} instances comprising this work. If any of the underlying 
+	 * Futures have already started, then the interruptAllowed parameter determines whether the threads executing the work should be 
+	 * interrupted in an attempt to stop the work. After this method returns, subsequent calls to isDone and isCancelled will always 
+	 * return true.
+	 * <p>
+	 * <b>NOTE</b>: This method should only be called by the Comm Framework from within a critical section on _workManagmentLock.
+	 * <p>
+	 * @param interruptAllowed True if any threads executing work should be interrupted, otherwise in-progress work is allowed to complete.
+	 */
+	void cancel(boolean interruptAllowed) {
+		if(!this.isDone()) {
+			this.setState(Status.CANCELLED);
+			for(FutureTask<Response> future : this._futureTasks) {
+				future.cancel(interruptAllowed);
+			}
+			if(_logger != null) { _logger.debug("[thread:%1$d][request:%2$d] Work has been cancel", Thread.currentThread().getId(), this.getId()); }
 		}
-		return(cancelled);
 	}
 
 	/** {@inheritDoc} */

@@ -251,6 +251,48 @@ public final class CommManager {
 	}
 
 	/**
+	 * Cancels work with the given ID if found, otherwise no-op.
+	 * @param workId The ID of the work to cancel (see {@link Work#getId()} and {@link Request#getId()}).
+	 * @param interruptAllowed A flag indicating if thread interrupts are allowed while attempting to cancel work.
+	 */
+	public void cancel(int workId, boolean interruptAllowed) {
+		
+		// Update the managed queues
+		CommWork workToCancel = null;
+		synchronized(_workManagmentLock) {
+
+			// Find the work with the given ID
+			workToCancel = this.getWorkFromList(workId, this._queuedWork);
+			if(workToCancel == null) {
+				workToCancel = this.getWorkFromList(workId, this._retryWork);
+			}
+			if(workToCancel == null) {
+				workToCancel = this.getWorkFromList(workId, this._activeWork);
+			}
+			if((workToCancel != null) && (!workToCancel.isDone())) {
+
+				// Remove the canceled work from managed queues and cancel any related Futures
+				this.removeWork(workToCancel);
+				workToCancel.cancel(interruptAllowed);
+				if(_logger != null) { _logger.debug("[thread:%1$d] Kicking work thread", Thread.currentThread().getId()); }
+				_workManagmentLock.notify();
+			}
+		}
+	}
+
+	/**
+	 * If the given List contains a {@link CommWork} instance with the given ID then it is returned, otherwise NULL is returned.
+	 */
+	private CommWork getWorkFromList(int workId, List<CommWork> list) {
+		for(CommWork work : list) {
+			if(work.getId() == workId) {
+				return(work);
+			}
+		}
+		return(null);
+	}
+
+	/**
 	 * Looks to see if the given work is already being processed by this CommManager instance.
 	 * If it is, the existing work instance is returned, otherwise <b>null</b> is returned.
 	 */
@@ -420,6 +462,24 @@ public final class CommManager {
 		}
 
 		return(retryInterval);
+	}
+
+	/**
+	 * Ensures that the given {@link Work} instance is no longer in the managed queues.<br />
+	 * <b>NOTE</b>: This method should only ever be called form within a critical section on _workManagmentLock.
+	 */
+	private void removeWork(Work work) {
+
+		// Ensure finished work is no longer in any of the queues
+		if(_queuedWork.remove(work)) {
+			if(_logger != null) { _logger.debug("[thread:%1$d][request:%2$d] Work has been removed from _queuedWork", Thread.currentThread().getId(), work.getId()); }
+		}
+		if(_activeWork.remove(work)) {
+			if(_logger != null) { _logger.debug("[thread:%1$d][request:%2$d] Work has been removed from _activeWork", Thread.currentThread().getId(), work.getId()); }
+		}
+		if(_retryWork.remove(work)) {
+			if(_logger != null) { _logger.debug("[thread:%1$d][request:%2$d] Work has been removed from _retryWork", Thread.currentThread().getId(), work.getId()); }
+		}
 	}
 
 	//------------------------------------------------------------
@@ -936,21 +996,9 @@ public final class CommManager {
 					case CANCELLED:		// The work has been cancelled
 					case COMPLETED:		// The work has finished without being cancelled
 
-						// Ensure finished work is no longer in any of the queues
-						if(_queuedWork.remove(this._work)) {
-							if(_logger != null) { _logger.error("%1$s Finished work has been removed from _queuedWork", this._logPrefix); }
-						}
-						if(_activeWork.remove(this._work)) {
-							if(_logger != null) { _logger.debug("%1$s Finished work has been removed from _activeWork", this._logPrefix); }
-						}
-						if(_retryWork.remove(this._work)) {
-							if(_logger != null) { _logger.error("%1$s Finished work has been removed from _retryWork", this._logPrefix); }
-						}
-
-						// Kick the work thread to check for new work (a spot just opened up!)
-						if(_logger != null) { _logger.debug("%1$s kicking work thread", this._logPrefix); }
+						removeWork(this._work);
+						if(_logger != null) { _logger.debug("[thread:%1$d] Kicking work thread", Thread.currentThread().getId()); }
 						_workManagmentLock.notify();
-
 						break;
 				}
 			}

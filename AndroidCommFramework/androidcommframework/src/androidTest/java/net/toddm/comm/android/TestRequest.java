@@ -20,4 +20,4 @@ package net.toddm.comm.android;
  * <p>
  * @author Todd S. Murchison
  */
-public class TestCommMain extends net.toddm.comm.tests.TestMain { }
+public class TestRequest extends net.toddm.comm.tests.TestRequest { }
