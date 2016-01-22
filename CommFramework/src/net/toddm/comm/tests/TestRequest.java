@@ -15,6 +15,8 @@
 // ***************************************************************************
 package net.toddm.comm.tests;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -69,7 +71,14 @@ public class TestRequest extends TestCase {
 	        assertNotNull(work);
 	        Thread.sleep(sleepTime);
 	        commManager.cancel(work.getId(), true);
-	        assertTrue((work.isCancelled() || work.isDone()));
+
+	        Method getStateMethod = work.getClass().getDeclaredMethod("getState");
+	        getStateMethod.setAccessible(true);
+	        Object status = getStateMethod.invoke(work);
+	        assertTrue(
+	        		String.format("Expected Cancelled or Done but got '%1$s'", status), 
+	        		(work.isCancelled() || work.isDone()));
+
 	        sleepTime += 100;
         }
         assertTrue(work.isDone());
@@ -242,12 +251,16 @@ public class TestRequest extends TestCase {
         assertNotNull(response);
         assertEquals(200, (int)response.getResponseCode());
         assertTrue(cacheProvider.containsKey(Integer.toString(work.getId()), true));
+        assertFalse(response.isFromCache());
+        int responseTime = response.getResponseTimeMilliseconds();
 
 		work = commManager.enqueueWork(new URI("http://httpbin.org/cache/500"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.HIGH, CacheBehavior.GET_ONLY_FROM_CACHE);
         response = work.get();
         assertNotNull(response);
         assertEquals(200, (int)response.getResponseCode());
         assertTrue(cacheProvider.containsKey(Integer.toString(work.getId()), true));
+        assertTrue(response.isFromCache());
+        assertEquals(responseTime, response.getResponseTimeMilliseconds());
 	}
 
 	public void testServerDirectedCache() throws Exception {

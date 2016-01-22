@@ -48,6 +48,7 @@ public class Response implements Serializable {
 	/** {@serial} */
 	private Map<String, List<String>> _headers;
 
+	private boolean _isFromCache;
 	private long _instanceCreationTime = System.currentTimeMillis();
 	private final LoggingProvider _logger;
 
@@ -64,12 +65,22 @@ public class Response implements Serializable {
 		this._requestId = requestId;
 		this._responseTime = responseTime;
 		this._logger = loggingProvider;
+
+		// Use of this constructor implicitly indicates that the response is not coming from cache
+		this._isFromCache = false;
 	}
 	
+	/**
+	 * Returns the response body of this response as raw bytes, or <b>null</b> if there is no response body.
+	 */
 	public byte[] getResponseBytes() {
 		return(this._responseBytes);
 	}
 
+	/**
+	 * Returns the response body of this response as a String, or <b>null</b> if there is no 
+	 * response body or the response body bytes can not be interpreted as a UTF-8 string.
+	 */
 	public String getResponseBody() {
 		String result = null;
 		try {
@@ -80,8 +91,26 @@ public class Response implements Serializable {
 		return(result);
 	}
 
+	/**
+	 * Returns the HTTP Status Code for this response, or <b>null</b> if there isn't one.
+	 */
 	public Integer getResponseCode() {
 		return(this._responseCode);
+	}
+
+	/**
+	 * Returns the total amount of time, in milliseconds, that it took to get this response from the time it started processing.
+	 */
+	public int getResponseTimeMilliseconds() {
+		return(this._responseTime);
+	}
+
+	/**
+	 * Returns <b>true</b> if this {@link Response} was served from cache. 
+	 * Returns <b>false</b> if this Response was received via a network request.
+	 */
+	public boolean isFromCache() {
+		return(this._isFromCache);
 	}
 
 	/**
@@ -320,6 +349,9 @@ public class Response implements Serializable {
 		}
 		
 		this._instanceCreationTime = System.currentTimeMillis();
+		
+		// Use of the Serializable implementation implicitly indicates that the response is from cache
+		this._isFromCache = true;
 	}
 
 }
