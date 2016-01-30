@@ -66,6 +66,10 @@ class CachedWork implements Work {
 
 	/** {@inheritDoc} */
 	@Override
+	public Status getState() { return(Status.COMPLETED); }
+
+	/** {@inheritDoc} */
+	@Override
 	public int getId() { return(this.request.getId()); }
 
 	/** {@inheritDoc} */

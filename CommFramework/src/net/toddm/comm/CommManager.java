@@ -55,7 +55,7 @@ import net.toddm.cache.CacheProvider;
 import net.toddm.cache.LoggingProvider;
 import net.toddm.comm.Priority.StartingPriority;
 import net.toddm.comm.Request.RequestMethod;
-import net.toddm.comm.CommWork.Status;
+import net.toddm.comm.Work.Status;
 
 /**
  * This is the main work horse of the communications framework. Instances of this class are used to submit work and provide priority queue 
@@ -150,6 +150,34 @@ public final class CommManager {
 	private final RetryPolicyProvider _retryPolicyProvider; 
 	private final ConfigurationProvider _configurationProvider;
 	private final LoggingProvider _logger;
+	
+	/**
+	 * Creates and returns a {@link Work} instance representing the request described by the provided data.
+	 * The Work instance returned has not been submitted for processing and no work will be done for it.
+	 * To start processing the Work instance, submit it to
+	 * <p>
+	 * @param uri The URI of the request to work on.
+	 * @param method The HTTP method of the request to work on.
+	 * @param postData <b>[OPTIONAL]</b> Can be NULL. The POST data of the request to work on.
+	 * @param headers <b>[OPTIONAL]</b> Can be NULL. The request headers of the request to work on.
+	 * @param isIdempotent A flag indicating if this request is considered to be an idempotent request. Retry policy provider implementations will often not want to retry non-idempotent requests on error.
+	 * @param requestPriority The priority of this request work relative to other request work.
+	 * @param cachingPriority A hint to the caching provider (if there is one) of the relative priority of the cache entry generated for this response.
+	 * @param cachingBehavior Indicates what caching behavior should be used for the results of the enqueued work.
+	 */
+	public Work getWork(
+			URI uri, 
+			Request.RequestMethod method, 
+			byte[] postData, 
+			Map<String, String> headers, 
+			boolean isIdempotent, 
+			StartingPriority requestPriority, 
+			CachePriority cachingPriority,
+			CacheBehavior cachingBehavior) 
+	{
+		// The CommWork constructor call below will validate all the arguments
+		return(new CommWork(uri, method, postData, headers, isIdempotent, requestPriority, cachingPriority, cachingBehavior, this._logger));
+	}
 
 	/**
 	 * Enters a request into the communications framework for processing. The {@link Work} instance returned can be used
@@ -174,15 +202,27 @@ public final class CommManager {
 			CachePriority cachingPriority,
 			CacheBehavior cachingBehavior) 
 	{
-		// The CommWork constructor call below will validate all the arguments
-		Work resultWork = null;
-		CommWork newWork = new CommWork(uri, method, postData, headers, isIdempotent, requestPriority, cachingPriority, cachingBehavior, this._logger);
+		return(this.enqueueWork(this.getWork(uri, method, postData, headers, isIdempotent, requestPriority, cachingPriority, cachingBehavior)));
+	}
+
+	/**
+	 * Enters a request into the communications framework for processing. The {@link Work} instance returned may not be the same as the 
+	 * Work instance passed in.  The returned instance can be used to wait on the request, manage the request, get results, etc.
+	 * <p>
+	 * @param work The {@link Work} instance describing the request to process.
+	 */
+	public Work enqueueWork(Work work) {
+
+		if(work == null) { throw(new IllegalArgumentException("'work' can not be NULL")); }
+		if(!(work instanceof CommWork)) { throw(new IllegalArgumentException("Unsupported 'work' implmenetation: " + work.getClass().getSimpleName())); }
+
 		if(this._logger != null) { this._logger.debug("[thread:%1$d] enqueueWork() start", Thread.currentThread().getId()); }
+		CommWork newWork = (CommWork)work;
 
 		// Check cache to see if we already have usable results for this request
 		CacheEntry cacheEntry = null;
 		Response cachedResponse = null;
-		if((!CacheBehavior.DO_NOT_CACHE.equals(cachingBehavior)) && (this._cacheProvider != null)) {
+		if((!CacheBehavior.DO_NOT_CACHE.equals(newWork.getCachingBehavior())) && (this._cacheProvider != null)) {
 
 			// If we have a cached response for the request add it to the work, this will allow us to properly handle eTag and 304 response work later
 			cacheEntry = this._cacheProvider.get(Integer.toString(newWork.getRequest().getId()), true);
@@ -196,6 +236,7 @@ public final class CommManager {
 			}
 		}
 
+		Work resultWork = null;
 		synchronized(_workManagmentLock) {
 
 			// Check if the specified work is already being handled by the communications framework
@@ -230,7 +271,7 @@ public final class CommManager {
 					// Return existing work that is currently being processed
 					if(this._logger != null) { this._logger.info("[thread:%1$d] enqueueWork() Returning already enqueued work [id:%2$d]", Thread.currentThread().getId(), existingWork.getId()); }
 					resultWork = existingWork;
-				} else if(CacheBehavior.GET_ONLY_FROM_CACHE.equals(cachingBehavior)) {
+				} else if(CacheBehavior.GET_ONLY_FROM_CACHE.equals(newWork.getCachingBehavior())) {
 
 					// This request can not be serviced, so return a work handle that indicates this
 					newWork.setResponse(null);
@@ -545,9 +586,11 @@ public final class CommManager {
 							}
 						}
 						for(CommWork retryWork : retryNowList) {
-							addWorkToQueue(retryWork, ManagedQueue.QUEUED);
-							retryWork.setState(Status.WAITING);
-							if(_logger != null) { _logger.debug("[thread:%1$d] Request %2$d moved from retry to queue", Thread.currentThread().getId(), retryWork.getId()); }
+							if(!retryWork.isDone()) {
+								addWorkToQueue(retryWork, ManagedQueue.QUEUED);
+								retryWork.setState(Status.WAITING);
+								if(_logger != null) { _logger.debug("[thread:%1$d] Request %2$d moved from retry to queue", Thread.currentThread().getId(), retryWork.getId()); }
+							}
 						}
 
 						// Check current work to see if we can start more work
@@ -561,9 +604,11 @@ public final class CommManager {
 
 							// Grab the next request, move it to the active queue, and start the work
 							CommWork workToStart = _queuedWork.removeFirst();
-							addWorkToQueue(workToStart, ManagedQueue.ACTIVE);
-							workToStart.setState(CommWork.Status.RUNNING);
-							_requestWorkExecutorService.execute(workToStart.getFutureTask());
+							if(!workToStart.isDone()) {
+								addWorkToQueue(workToStart, ManagedQueue.ACTIVE);
+								workToStart.setState(CommWork.Status.RUNNING);
+								_requestWorkExecutorService.execute(workToStart.getFutureTask());
+							}
 						}
 
 						// Calculate sleep time based on pending retry work
@@ -820,23 +865,26 @@ public final class CommManager {
 
 			// Check for an exception triggered retry
 			RetryProfile retryProfile = CommManager.this._retryPolicyProvider.shouldRetry(this._work.getRequest(), e);
-			if(retryProfile.shouldRetry()) {
-
-				// This work should be retried, make it so...
-				this._work.updateRetryAfterTimestamp(retryProfile.getRetryAfterMilliseconds());
-				this._work.getRequest().incrementRetryCountFromFailure();
-				this._work.setState(Status.RETRYING);
-
-				// Add the failed request to the retry list and kick the worker thread so it wakes up to recalculate it's sleep time
-				synchronized(_workManagmentLock) {
-					addWorkToQueue(this._work, ManagedQueue.RETRY);
-
-					// Add the retry unit of work to the Work instance
-					this._work.addFutureTask(new FutureTask<Response>(new WorkCallable(this._work)));
-					_workManagmentLock.notify();
+			synchronized(_workManagmentLock) {
+				if(!this._work.isCancelled()) {
+					if(retryProfile.shouldRetry()) {
+		
+						// This work should be retried, make it so...
+						this._work.updateRetryAfterTimestamp(retryProfile.getRetryAfterMilliseconds());
+						this._work.getRequest().incrementRetryCountFromFailure();
+						this._work.setState(Status.RETRYING);
+		
+						// Add the failed request to the retry list and kick the worker thread so it wakes up to recalculate it's sleep time
+						addWorkToQueue(this._work, ManagedQueue.RETRY);
+	
+						// Add the retry unit of work to the Work instance
+						this._work.addFutureTask(new FutureTask<Response>(new WorkCallable(this._work)));
+						_workManagmentLock.notify();
+	
+					} else {
+						this._work.setState(Status.COMPLETED);
+					}
 				}
-			} else {
-				this._work.setState(Status.COMPLETED);
 			}
 		}
 
@@ -855,15 +903,17 @@ public final class CommManager {
 
 				// ************ RETRY ************
 				// This work should be retried, make it so...
-				this._work.updateRetryAfterTimestamp(retryProfile.getRetryAfterMilliseconds());
-				this._work.getRequest().incrementRetryCountFromResponse();
-				this._work.setState(Status.RETRYING);
-
-				// Update the work for retry and kick the worker thread so it wakes up to recalculate it's sleep time
-				this._work.addFutureTask(new FutureTask<Response>(new WorkCallable(this._work)));  // Add the future task for the retry work
 				synchronized(_workManagmentLock) {
-					addWorkToQueue(this._work, ManagedQueue.RETRY);
-					_workManagmentLock.notify();
+					if(!this._work.isCancelled()) {
+						this._work.updateRetryAfterTimestamp(retryProfile.getRetryAfterMilliseconds());
+						this._work.getRequest().incrementRetryCountFromResponse();
+						this._work.setState(Status.RETRYING);
+		
+						// Update the work for retry and kick the worker thread so it wakes up to recalculate it's sleep time
+						this._work.addFutureTask(new FutureTask<Response>(new WorkCallable(this._work)));  // Add the future task for the retry work
+						addWorkToQueue(this._work, ManagedQueue.RETRY);
+						_workManagmentLock.notify();
+					}
 				}
 
 			} else if(	((response.getResponseCode() == 301) || (response.getResponseCode() == 302) || (response.getResponseCode() == 303)) && 
@@ -873,17 +923,19 @@ public final class CommManager {
 
 				// ************ REDIRECT ************
 				// HttpURLConnection is not handling redirects for us, so support "3xx Location" response triggered redirecting
-				URI targetUri = response.getLocationFromHeaders(this._work.getRequest());
-				if(_logger != null) { _logger.debug("%1$s Redirecting from %2$s to %3$s", this._logPrefix, this._work.getRequest().getUri().toString(), targetUri.toString()); }
-				this._work.getRequest().redirect(targetUri);  // This call increments the request redirect count
-
-				// We process redirects through the retry queue (to be retried immediately)
-				this._work.updateRetryAfterTimestamp(0);
-				this._work.setState(Status.REDIRECTING);
-				this._work.addFutureTask(new FutureTask<Response>(new WorkCallable(this._work)));  // Add the future task for the redirect work
 				synchronized(_workManagmentLock) {
-					addWorkToQueue(this._work, ManagedQueue.RETRY);
-					_workManagmentLock.notify();
+					if(!this._work.isCancelled()) {
+						URI targetUri = response.getLocationFromHeaders(this._work.getRequest());
+						if(_logger != null) { _logger.debug("%1$s Redirecting from %2$s to %3$s", this._logPrefix, this._work.getRequest().getUri().toString(), targetUri.toString()); }
+						this._work.getRequest().redirect(targetUri);  // This call increments the request redirect count
+		
+						// We process redirects through the retry queue (to be retried immediately)
+						this._work.updateRetryAfterTimestamp(0);
+						this._work.setState(Status.REDIRECTING);
+						this._work.addFutureTask(new FutureTask<Response>(new WorkCallable(this._work)));  // Add the future task for the redirect work
+						addWorkToQueue(this._work, ManagedQueue.RETRY);
+						_workManagmentLock.notify();
+					}
 				}
 
 			} else if(	(this._work.shouldCache()) && 

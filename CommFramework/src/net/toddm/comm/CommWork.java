@@ -41,24 +41,6 @@ import net.toddm.comm.Priority.StartingPriority;
  */
 class CommWork implements Work {
 
-	/** An set of possible states that work can be in */
-	public enum Status {
-		/** The {@link Work} instance has been created, but has not started processing yet */
-		CREATED,
-		/** The {@link Work} instance is waiting in the pending work queue */
-		WAITING,
-		/** The {@link Work} instance is actively being processed */
-		RUNNING,
-		/** There is a pending retry attempt for the {@link Work} instance */
-		RETRYING,
-		/** There is a pending redirect attempt for the {@link Work} instance */
-		REDIRECTING,
-		/** The {@link Work} instance has been cancelled */
-		CANCELLED,
-		/** The {@link Work} instance has finished without being cancelled */
-		COMPLETED
-	}
-
     private final Request _request;
     private final Priority _requestPriority;
     private final CachePriority _cachingPriority;
@@ -151,7 +133,7 @@ class CommWork implements Work {
 	}
 
 	/** Returns the current state of this {@link CommWork} instance */
-	protected Status getState() { return(this._state); }
+	public Status getState() { return(this._state); }
 
 	/** Sets the current state of this {@link CommWork} instance */
 	protected void setState(Status state) {
@@ -275,7 +257,12 @@ class CommWork implements Work {
 	}
 	
 	private Response getInternal(Long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
-		
+
+		// Ensure it is safe to wait on this work
+		if(Status.CREATED.equals(this._state)) {
+			throw(new IllegalStateException("You can not wait on work that has not been submitted for processing"));
+		}
+
 		// Make sure to wait for all work (newer work may have been added while we were waiting)
 		int responseCount = 0;
 		ArrayList<Response> responses = new ArrayList<Response>();

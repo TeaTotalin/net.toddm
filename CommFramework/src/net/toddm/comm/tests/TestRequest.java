@@ -15,8 +15,6 @@
 // ***************************************************************************
 package net.toddm.comm.tests;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -65,21 +63,19 @@ public class TestRequest extends TestCase {
         commManager.cancel(work.getId(), true);
         assertTrue(work.isCancelled());
 
-        long sleepTime = 100;
+        String urlPattern = new String("http://httpbin.org/response-headers?sleepTime=%1$d");
+        long sleepTime = 20;
         while(work.isCancelled()) {
-			work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+			work = commManager.enqueueWork(new URI(String.format(urlPattern, sleepTime)), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
 	        assertNotNull(work);
 	        Thread.sleep(sleepTime);
-	        commManager.cancel(work.getId(), true);
 
-	        Method getStateMethod = work.getClass().getDeclaredMethod("getState");
-	        getStateMethod.setAccessible(true);
-	        Object status = getStateMethod.invoke(work);
+	        commManager.cancel(work.getId(), true);
 	        assertTrue(
-	        		String.format("Expected Cancelled or Done but got '%1$s'", status), 
+	        		String.format("Expected Cancelled or Done but got '%1$s'", work.getState()), 
 	        		(work.isCancelled() || work.isDone()));
 
-	        sleepTime += 100;
+	        sleepTime += 20;
         }
         assertTrue(work.isDone());
 	}

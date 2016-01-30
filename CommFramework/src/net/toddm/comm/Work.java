@@ -28,6 +28,27 @@ import net.toddm.cache.CachePriority;
  */
 public interface Work {
 
+	/** An set of possible states that work can be in */
+	public enum Status {
+		/** The {@link Work} instance has been created, but has not started processing yet */
+		CREATED,
+		/** The {@link Work} instance is waiting in the pending work queue */
+		WAITING,
+		/** The {@link Work} instance is actively being processed */
+		RUNNING,
+		/** There is a pending retry attempt for the {@link Work} instance */
+		RETRYING,
+		/** There is a pending redirect attempt for the {@link Work} instance */
+		REDIRECTING,
+		/** The {@link Work} instance has been cancelled */
+		CANCELLED,
+		/** The {@link Work} instance has finished without being cancelled */
+		COMPLETED
+	}
+
+	/** Returns the current state of this {@link Work} instance */
+	public Status getState();
+
 	/**
 	 * Returns the ID of this {@link Work} instance. The ID of the underlying 
 	 * {@link Request} is used. See {@link Request#getId()} for details.
