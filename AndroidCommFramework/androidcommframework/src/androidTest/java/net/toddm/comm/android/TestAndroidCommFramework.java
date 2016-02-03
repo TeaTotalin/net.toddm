@@ -28,32 +28,47 @@ import net.toddm.cache.android.DBCacheProvider;
 /**
  * Implements unit tests specific to the <B>Android</B> Communications Framework
  * extension of the <i>net.toddm.comm</i> Communications Framework.
- * <p>
+ * <p/>
+ *
  * @author Todd S. Murchison
  */
 public class TestAndroidCommFramework extends ApplicationTestCase<Application> {
-  public TestAndroidCommFramework() { super(Application.class); }
+    public TestAndroidCommFramework() { super(Application.class); }
 
-  public void testDBCacheProvider() throws Exception {
+    public void testDBCacheProvider() throws Exception {
 
-    // Make use of the caching framework testing validation method to help validate our database cache provider implementation
-    DBCacheProvider cache = DBCacheProvider.getInstance(this.getContext(), "test_namespace", 1, 100, new DefaultLogger());
-    net.toddm.cache.tests.MainTest.validateCachingFunctionality(cache);
-  }
+        // Make use of the caching framework testing validation method to help validate our database cache provider implementation
+        DBCacheProvider cache = DBCacheProvider.getInstance(this.getContext(), "test_namespace", 1, 100, new DefaultLogger());
+        net.toddm.cache.tests.MainTest.validateCachingFunctionality(cache);
+    }
 
-  public void testDBCacheProviderAdditional() throws Exception {
+    public void testDBCacheProviderInvalidateCache() throws Exception {
 
-    // Do any additional testing of the DBCacheProvider not covered by the standard validateCachingFunctionality() method (see above)
-    DBCacheProvider cache = DBCacheProvider.getInstance(this.getContext(), "test_namespace", 1, 100, new DefaultLogger());
-    cache.removeAll();
-    Assert.assertEquals(0, cache.size(true));
-    Assert.assertEquals(0, cache.size(false));
-    cache.add("test_key", "test_value", 100, 0, null, null, CachePriority.NORMAL);
-    Assert.assertEquals(1, cache.size(true));
-    Assert.assertEquals(1, cache.size(false));
-    Thread.sleep(101);
-    Assert.assertEquals(1, cache.size(true));
-    Assert.assertEquals(0, cache.size(false));
-  }
+        // Make use of the comm framework testing validation method to help validate our database cache provider implementation
+        DBCacheProvider cache = DBCacheProvider.getInstance(this.getContext(), "testDBCacheProviderInvalidateCache", 1, 100, new DefaultLogger());
+        net.toddm.comm.tests.TestResponse.validateInvalidateCache(cache);
+    }
+
+    public void testDBCacheProviderPurgeCache() throws Exception {
+
+        // Make use of the comm framework testing validation method to help validate our database cache provider implementation
+        DBCacheProvider cache = DBCacheProvider.getInstance(this.getContext(), "validatePurgeCache", 1, 100, new DefaultLogger());
+        net.toddm.comm.tests.TestResponse.validatePurgeCache(cache);
+    }
+
+    public void testDBCacheProviderAdditional() throws Exception {
+
+        // Do any additional testing of the DBCacheProvider not covered by the standard validateCachingFunctionality() method (see above)
+        DBCacheProvider cache = DBCacheProvider.getInstance(this.getContext(), "test_namespace", 1, 100, new DefaultLogger());
+        cache.removeAll();
+        Assert.assertEquals(0, cache.size(true));
+        Assert.assertEquals(0, cache.size(false));
+        cache.add("test_key", "test_value", 100, 0, null, null, CachePriority.NORMAL);
+        Assert.assertEquals(1, cache.size(true));
+        Assert.assertEquals(1, cache.size(false));
+        Thread.sleep(101);
+        Assert.assertEquals(1, cache.size(true));
+        Assert.assertEquals(0, cache.size(false));
+    }
 
 }

@@ -322,6 +322,34 @@ public final class CommManager {
 	}
 
 	/**
+	 * If a cache entry exists for the given work ID it's TTL is updated to 0 making the entry stale.
+	 */
+	public void invalidateCache(int workId) {
+		CacheEntry cacheEntry = this._cacheProvider.get(Integer.toString(workId), false);
+		if(cacheEntry != null) {
+			if(cacheEntry.getStringValue() != null) {
+				this._cacheProvider.add(cacheEntry.getKey(), cacheEntry.getStringValue(), 0, cacheEntry.getMaxStale(), cacheEntry.getEtag(), cacheEntry.getUri(), cacheEntry.getPriority());
+			} else {
+				this._cacheProvider.add(cacheEntry.getKey(), cacheEntry.getBytesValue(), 0, cacheEntry.getMaxStale(), cacheEntry.getEtag(), cacheEntry.getUri(), cacheEntry.getPriority());
+			}
+		}
+	}
+
+	/**
+	 * If a cache entry exists for the given work ID it is deleted.
+	 */
+	public void purgeCache(int workId) {
+		this._cacheProvider.remove(Integer.toString(workId));
+	}
+
+	/**
+	 * Deletes <b>ALL</b> response cache entries. Use carefully and wisely.
+	 */
+	public void purgeCache() {
+		this._cacheProvider.removeAll();
+	}
+
+	/**
 	 * If the given List contains a {@link CommWork} instance with the given ID then it is returned, otherwise NULL is returned.
 	 */
 	private CommWork getWorkFromList(int workId, List<CommWork> list) {

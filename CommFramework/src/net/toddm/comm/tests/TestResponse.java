@@ -22,6 +22,7 @@ import java.util.UUID;
 import junit.framework.TestCase;
 import net.toddm.cache.CacheEntry;
 import net.toddm.cache.CachePriority;
+import net.toddm.cache.CacheProvider;
 import net.toddm.cache.DefaultLogger;
 import net.toddm.cache.MemoryCacheProvider;
 import net.toddm.comm.CacheBehavior;
@@ -35,6 +36,81 @@ public class TestResponse extends TestCase {
 
 	// TODO: Think about alternative ways to do these tests.
 	// I love httpbin.org. If it ever goes away, however, I'm in trouble with these test cases.
+	// Should probably build some proper unit tests (these are effectively functional tests) and use PowerMockito or something similar.
+
+	public void testInvalidateCache() throws Exception {
+		MemoryCacheProvider cache = new MemoryCacheProvider("testInvalidateCache", 20, new DefaultLogger());
+		validateInvalidateCache(cache);
+	}
+
+	public static void validateInvalidateCache(CacheProvider cache) throws Exception {
+
+		CommManager.Builder commManagerBuilder = new CommManager.Builder();
+		CommManager commManager = commManagerBuilder
+				.setName("testInvalidateCache")
+				.setCacheProvider(cache)
+				.setLoggingProvider(new DefaultLogger())
+				.create();
+
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/cache/1000"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.NORMAL);
+        assertNotNull(work);
+
+        Response response = work.get();
+        assertNotNull(response);
+        assertEquals(200, (int)response.getResponseCode());
+
+        // Verify that we now have a cache entry
+        String cacheKey = Integer.toString(work.getId());
+        assertTrue(cache.containsKey(cacheKey, false));
+
+        // Invalidate the cache entry and verify that it is considered expired
+        commManager.invalidateCache(work.getId());
+        assertTrue(cache.containsKey(cacheKey, true));
+        assertFalse(cache.containsKey(cacheKey, false));
+	}
+
+	public void testPurgeCache() throws Exception {
+		MemoryCacheProvider cache = new MemoryCacheProvider("testPurgeCache", 20, new DefaultLogger());
+		validatePurgeCache(cache);
+	}
+
+	public static void validatePurgeCache(CacheProvider cache) throws Exception {
+
+		CommManager.Builder commManagerBuilder = new CommManager.Builder();
+		CommManager commManager = commManagerBuilder
+				.setName("testPurgeCache")
+				.setCacheProvider(cache)
+				.setLoggingProvider(new DefaultLogger())
+				.create();
+
+		Work work1 = commManager.enqueueWork(new URI("http://httpbin.org/cache/1000"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.NORMAL);
+        assertNotNull(work1);
+        Response response = work1.get();
+        assertNotNull(response);
+        assertEquals(200, (int)response.getResponseCode());
+
+		Work work2 = commManager.enqueueWork(new URI("http://httpbin.org/cache/2000"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.NORMAL);
+        assertNotNull(work2);
+        response = work2.get();
+        assertNotNull(response);
+        assertEquals(200, (int)response.getResponseCode());
+
+        // Verify that we now have both cache entries
+        String cacheKey1 = Integer.toString(work1.getId());
+        assertTrue(cache.containsKey(cacheKey1, false));
+        String cacheKey2 = Integer.toString(work2.getId());
+        assertTrue(cache.containsKey(cacheKey2, false));
+
+        // Purge the first entry and verify that it is no longer in the cache, but that the second entry is still in the cache
+        commManager.purgeCache(work1.getId());
+        assertFalse(cache.containsKey(cacheKey1, true));
+        assertTrue(cache.containsKey(cacheKey2, true));
+
+        // Purge the whole cache and verify that the remaining entry is now gone
+        commManager.purgeCache();
+        assertFalse(cache.containsKey(cacheKey1, true));
+        assertFalse(cache.containsKey(cacheKey2, true));
+	}
 
 	public void testGetLocationFromHeadersAbsolute() throws Exception {
 
