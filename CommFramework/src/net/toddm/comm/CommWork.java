@@ -19,6 +19,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
@@ -52,6 +53,9 @@ class CommWork implements Work {
 	private Response _response = null;
 	private CacheEntry _cachedResponse = null;
 	private long _retryAfterTimestamp = 0;
+
+	private CommWork _dependentWork = null;
+	private DependentWorkListener _dependentWorkListener = null;
 
 	protected CommWork(
 			URI uri, 
@@ -293,6 +297,13 @@ class CommWork implements Work {
 		}
 	}
 
+	/**
+	 * If <b>true</b> indicates that this {@link CommWork} instance has been submitted for processing, but is not the currently running work and is not yet done.
+	 */
+	public boolean isPending() {
+		return((this._state == Status.WAITING) || (this._state == Status.RETRYING) || (this._state == Status.REDIRECTING));
+	}
+
 	/** {@inheritDoc} */
 	@Override
 	public boolean isDone() {
@@ -303,6 +314,38 @@ class CommWork implements Work {
 	@Override
 	public boolean isCancelled() {
 		return(this._state == Status.CANCELLED);
+	}
+
+	/** {@inheritDoc} */
+	@Override
+	public void setDependentWork(Work dependentWork, DependentWorkListener dependentWorkListener) {
+
+		// NULL is a valid value for both parameters
+
+		// Detect circular references
+		HashSet<Integer> dependentWorkIds = new HashSet<Integer>();
+		dependentWorkIds.add(this.getId());
+		CommWork currWork = (CommWork)dependentWork;
+		while(currWork != null) {
+			if(!dependentWorkIds.add(currWork.getId())) {
+				// The set already contains this work ID, we have a cyclic dependence!
+				throw(new IllegalArgumentException("Cyclic dependence detected"));
+			}
+			currWork = currWork.getDependentWork();
+		}
+
+		this._dependentWork = (CommWork)dependentWork;
+		this._dependentWorkListener = dependentWorkListener;
+	}
+
+	/** If this {@link Work} is dependent on another Work that dependent Work is returned, otherwise NULL is returned. */
+	protected CommWork getDependentWork() {
+		return(this._dependentWork);
+	}
+
+	/** If this {@link Work} has a callback to be called when dependent work finishes that callback is returned, otherwise NULL is returned. */
+	protected DependentWorkListener getDependentWorkListener() {
+		return(this._dependentWorkListener);
 	}
 
 	/**

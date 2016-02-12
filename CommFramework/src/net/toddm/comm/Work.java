@@ -98,4 +98,15 @@ public interface Work {
 	/** Returns true if this work was cancelled before it completed normally. */
 	public boolean isCancelled();
 
+	/**
+	 * Causes this {@link Work} to be dependent on the provided Work. When processing this Work the {@link CommManager} will 
+	 * ensure that the given Work is processed first.  This may include pausing the current Work, starting the dependent Work 
+	 * if it has not yet been started, etc.
+	 * 
+	 * @param dependentWork An instance of {@link Work} that must finish processing before this instance is processed.
+	 * @param dependentWorkListener [OPTIONAL] Can be NULL.  If provided, this callback is made with the results of the 
+	 * dependent Work before the current work is processed.
+	 */
+	public void setDependentWork(Work dependentWork, DependentWorkListener dependentWorkListener);
+
 }

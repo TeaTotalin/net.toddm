@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.FutureTask;
@@ -125,6 +126,9 @@ public final class CommManager {
 		this.startWorking(name);
 	}
 	//------------------------------
+
+	// TODO: Expose this via config?
+	private static final int _DependentWorkRetryIntervalMilliseconds = 333;
 
 	private final int _redirectLimit;
 	private final int _maxSimultaneousRequests;
@@ -246,9 +250,11 @@ public final class CommManager {
 				
 				// If we have a usable cached result use it
 				resultWork = new CachedWork(newWork.getRequest(), cachedResponse, newWork.getRequestPriority(), newWork.getCachingPriority(), newWork.getCachingBehavior());
-				if(this._logger != null) { this._logger.info("[thread:%1$d] enqueueWork() Returning cached results [id:%2$d]", Thread.currentThread().getId(), newWork.getId()); }
+				if(this._logger != null) { 
+					this._logger.info("[thread:%1$d] enqueueWork() Returning cached results [id:%2$d][hasExpired:%3$s]", Thread.currentThread().getId(), newWork.getId(), cacheEntry.hasExpired());
+				}
 
-				if((cacheEntry != null) && (cacheEntry.hasExpired())) {
+				if(cacheEntry.hasExpired()) {
 
 					// The cached response has expired, but is still in the "stale use" window, so if we are not already working to update the response start new work to update
 					if(existingWork == null) {
@@ -685,50 +691,101 @@ public final class CommManager {
 
 		@Override
 		public Response call() throws Exception {
-			this._logPrefix = String.format(Locale.US, "[thread:%1$d][request:%2$d]", Thread.currentThread().getId(), this._work.getId());
+			Response response = null;
+			try {
 
-			// Do the work
-			Response response = this.processesRequest();
+				this._logPrefix = String.format(Locale.US, "[thread:%1$d][request:%2$d]", Thread.currentThread().getId(), this._work.getId());
 
-			// Log response
-			if(response == null) {
-				if(_logger != null) { _logger.error("%1$s Received a NULL result", this._logPrefix); }
-			} else {
-				if(_logger != null) {
-					_logger.debug("%1$s Response code: %2$d", this._logPrefix, response.getResponseCode());
-					if((response.getResponseBody() != null) && (response.getResponseBody().length() > 0)) {
-						_logger.debug("%1$s Response body:\r\n%2$s", this._logPrefix, response.getResponseBody());
-					}
-					if((response.getHeaders() != null) && (response.getHeaders().size() > 0)) {
-						StringBuilder logMsg = new StringBuilder(this._logPrefix);
-						logMsg.append(" Response headers:\r\n");
-						for(String name : response.getHeaders().keySet()) {
-							for(String value : response.getHeaders().get(name)) {
-								logMsg.append(":      ");
-								logMsg.append(name);
-								logMsg.append(" = ");
-								logMsg.append(value);
-								logMsg.append("\r\n");
-							}
+				// Do the work
+				response = this.processesRequest();
+
+				// Log response
+				if(response == null) {
+					if(_logger != null) { _logger.debug("%1$s Received a NULL result", this._logPrefix); }
+				} else {
+					if(_logger != null) {
+						_logger.debug("%1$s Response code: %2$d", this._logPrefix, response.getResponseCode());
+						if((response.getResponseBody() != null) && (response.getResponseBody().length() > 0)) {
+							_logger.debug("%1$s Response body:\r\n%2$s", this._logPrefix, response.getResponseBody());
 						}
-						_logger.debug("%1$s %2$s", this._logPrefix, logMsg.toString());
+						if((response.getHeaders() != null) && (response.getHeaders().size() > 0)) {
+							StringBuilder logMsg = new StringBuilder(this._logPrefix);
+							logMsg.append(" Response headers:\r\n");
+							for(String name : response.getHeaders().keySet()) {
+								for(String value : response.getHeaders().get(name)) {
+									logMsg.append(":      ");
+									logMsg.append(name);
+									logMsg.append(" = ");
+									logMsg.append(value);
+									logMsg.append("\r\n");
+								}
+							}
+							_logger.debug("%1$s %2$s", this._logPrefix, logMsg.toString());
+						}
 					}
 				}
-			}
 
-			// Clean up and return
-			this.cleanup();
+				// Clean up and return
+				this.cleanup();
+
+				// The catch blocks below simply log as they may be valid cases when canceling work
+			} catch (InterruptedException e) {
+				_logger.error(e, "WorkCallable.call() failed");
+			} catch (ExecutionException e) {
+				_logger.error(e, "WorkCallable.call() failed");
+			}
 			return(response);
 		}
 
 		/** Does the actual on-the-wire work of the request and returns the results. <p> This method is <b>blocking</b>. */
-		private Response processesRequest() {
+		private Response processesRequest() throws InterruptedException, ExecutionException {
 			long start = System.currentTimeMillis();
 
 			Response response = null;
 			InputStream in = null;
 			HttpURLConnection urlConnection = null;
 			try {
+				
+				// Guarantee dependent work order (if there is any)
+				CommWork dependentWork = (CommWork)this._work.getDependentWork();
+				if(dependentWork != null) {
+
+					_logger.debug("%1$s Dependent Work found [dependentWork:%2$d]", this._logPrefix, dependentWork.getId());
+					if(Status.CREATED.equals(dependentWork.getState())) {
+
+						// Submit dependentWork for processing, move current work to retry queue to guarantee it does not block the dependent work
+						_logger.debug("%1$s Starting Dependent Work, re-enqueuing current work [dependentWork:%2$d]", this._logPrefix, dependentWork.getId());
+						enqueueWork(dependentWork);
+						reEnqueueWorkForDependentWork();
+						return(null);
+					} else if(dependentWork.isPending()) {
+
+						// Move current work to retry queue to guarantee it does not block the dependent work
+						_logger.debug("%1$s Re-enqueuing current work [dependentWork:%2$d]", this._logPrefix, dependentWork.getId());
+						reEnqueueWorkForDependentWork();
+						return(null);
+					} else if(Status.RUNNING.equals(dependentWork.getState())) {
+
+						// Block on dependentWork wait handle
+						_logger.debug("%1$s Blocking on Dependent Work [dependentWork:%2$d]", this._logPrefix, dependentWork.getId());
+						dependentWork.get();
+					}
+
+					// At this point current work should have either been re-enqueued or blocked on until finished
+					if(!dependentWork.isDone()) {
+						throw(new IllegalStateException("Work should have been re-enqueued or blocked on until finished"));
+					}
+
+					// dependentWork is finished, so make the callback and decide if current work should be canceled or not
+					if(this._work.getDependentWorkListener() != null) {
+						if(!this._work.getDependentWorkListener().onDependentWorkCompleted(dependentWork, this._work)) {
+							_logger.debug("%1$s Cancelling current work due to Dependent Work results [dependentWork:%2$d]", this._logPrefix, dependentWork.getId());
+							this._work.setState(Status.CANCELLED);
+							return(null);
+						}
+					}
+					_logger.debug("%1$s Dependent Work completed [dependentWork:%2$d]", this._logPrefix, dependentWork.getId());
+				}
 
 				// Create our connection
 				URL url = this._work.getRequest().getUri().toURL();
@@ -888,13 +945,28 @@ public final class CommManager {
 			return(response);
 		}
 
+		/** Updates the current work to be retried at an appropriate interval to allow pending dependent work to start processing. */
+		private void reEnqueueWorkForDependentWork() {
+			synchronized(_workManagmentLock) {
+				if(!this._work.isDone()) {
+					this._work.updateRetryAfterTimestamp(_DependentWorkRetryIntervalMilliseconds);
+					this._work.setState(Status.RETRYING);
+	
+					// Update the work for retry and kick the worker thread so it wakes up to recalculate it's sleep time
+					this._work.addFutureTask(new FutureTask<Response>(new WorkCallable(this._work)));  // Add the future task for the retry work
+					addWorkToQueue(this._work, ManagedQueue.RETRY);
+					_workManagmentLock.notify();
+				}
+			}
+		}
+
 		/** This method updates the current work state based on the given exception.  The work is either queued for retry or marked as completed. */
 		private void handleWorkUpdatesOnException(Exception e) {
 
 			// Check for an exception triggered retry
 			RetryProfile retryProfile = CommManager.this._retryPolicyProvider.shouldRetry(this._work.getRequest(), e);
 			synchronized(_workManagmentLock) {
-				if(!this._work.isCancelled()) {
+				if(!this._work.isDone()) {
 					if(retryProfile.shouldRetry()) {
 		
 						// This work should be retried, make it so...
@@ -932,7 +1004,7 @@ public final class CommManager {
 				// ************ RETRY ************
 				// This work should be retried, make it so...
 				synchronized(_workManagmentLock) {
-					if(!this._work.isCancelled()) {
+					if(!this._work.isDone()) {
 						this._work.updateRetryAfterTimestamp(retryProfile.getRetryAfterMilliseconds());
 						this._work.getRequest().incrementRetryCountFromResponse();
 						this._work.setState(Status.RETRYING);

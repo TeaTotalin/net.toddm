@@ -104,4 +104,8 @@ class CachedWork implements Work {
 	@Override
 	public boolean isCancelled() { return(false); }
 
+	/** This implementation is <b>no-op</b>.  Cached work has already been processed. */
+	@Override
+	public void setDependentWork(Work dependentWork, DependentWorkListener dependentWorkListener) { }
+
 }
