@@ -67,16 +67,16 @@ public class DefaultRetryPolicyProvider implements RetryPolicyProvider {
 	 * that may be caused by transiient network blips then this implementation recommends retry after a short 3 second interval.
 	 */
 	@Override
-	public RetryProfile shouldRetry(Request request, Exception error) {
-		if(request == null) { throw(new IllegalArgumentException("'request' can not be NULL")); }
+	public RetryProfile shouldRetry(Work work, Exception error) {
+		if(work == null) { throw(new IllegalArgumentException("'work' can not be NULL")); }
 		if(error == null) { throw(new IllegalArgumentException("'error' can not be NULL")); }
 
 		// Do not attempt request retry on error for requests that are not idempotent
 		boolean shouldRetry = false;
-		if(request.isIdempotent()) {
+		if(work.getRequest().isIdempotent()) {
 
 			// Decide if we should retry the request based on the number of retries already attempted and the Exception type
-			if(	(request.getRetryCountFromFailure() < _MaxErrorRetries) && 
+			if(	(work.getRequest().getRetryCountFromFailure() < _MaxErrorRetries) && 
 				(	error instanceof ConnectException || 
 					error instanceof SocketException || 
 					error instanceof SocketTimeoutException || 
@@ -97,7 +97,7 @@ public class DefaultRetryPolicyProvider implements RetryPolicyProvider {
 				) )
 			{
 				shouldRetry = true;
-				if(this._logger != null) { this._logger.debug("Recommending request %1$d be retried in 3 seconds due to %2$s", request.getId(), error.getClass().getSimpleName()); }
+				if(this._logger != null) { this._logger.debug("Recommending request %1$d be retried in 3 seconds due to %2$s", work.getId(), error.getClass().getSimpleName()); }
 			}
 		}
 
@@ -112,14 +112,14 @@ public class DefaultRetryPolicyProvider implements RetryPolicyProvider {
 	 * If no 'Retry-After' header is found a default retry interval of 5 seconds is used.
 	 */
 	@Override
-	public RetryProfile shouldRetry(Request request, Response response) {
-		if(request == null) { throw(new IllegalArgumentException("'request' can not be NULL")); }
+	public RetryProfile shouldRetry(Work work, Response response) {
+		if(work == null) { throw(new IllegalArgumentException("'request' can not be NULL")); }
 		if(response == null) { throw(new IllegalArgumentException("'response' can not be NULL")); }
 
 		// Support Retry-After header for 503 and 202 response codes
 		boolean shouldRetry = false;
 		long retryInSeconds = 5;  // Default to 5 seconds as a random but seemingly sane default
-		if(	(request.getRetryCountFromResponse() < _MaxResponseRetries) && 
+		if(	(work.getRequest().getRetryCountFromResponse() < _MaxResponseRetries) && 
 			(	(response.getResponseCode() == 503) || 
 				(response.getResponseCode() == 202)) ) 
 		{
@@ -135,7 +135,7 @@ public class DefaultRetryPolicyProvider implements RetryPolicyProvider {
 				}
 			}
 			if(this._logger != null) { 
-				this._logger.debug("Recommending request %1$d be retried in %2$d seconds due to %3$d", request.getId(), retryInSeconds, response.getResponseCode());
+				this._logger.debug("Recommending request %1$d be retried in %2$d seconds due to %3$d", work.getId(), retryInSeconds, response.getResponseCode());
 			}
 		}
 

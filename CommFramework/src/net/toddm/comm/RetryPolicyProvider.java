@@ -26,19 +26,19 @@ public interface RetryPolicyProvider {
 	/**
 	 * Called by the {@link CommManager} when network request work results in an exception.
 	 * The {@link RetryProfile} instance returned is used to determine if and how the request should be retried.
-	 * @param request The {@link Request} that resulted in the given {@link Exception}.
+	 * @param work The {@link Work} that resulted in the given {@link Exception}.
 	 * @param error The {@link Exception} thrown while attempting the given {@link Request} work.
 	 * @return A {@link RetryProfile} instance used to determine if and how the request should be retried.
 	 */
-	public RetryProfile shouldRetry(Request request, Exception error);
+	public RetryProfile shouldRetry(Work work, Exception error);
 
 	/**
 	 * Called by the {@link CommManager} when network request work results in a response back from the remote resource.
 	 * The {@link RetryProfile} instance returned is used to determine if and how the request should be retried.
-	 * @param request The {@link Request} that resulted in the given {@link Response}.
+	 * @param work The {@link Work} that resulted in the given {@link Response}.
 	 * @param response The {@link Response} instance resulting from the given {@link Request} work.
 	 * @return A {@link RetryProfile} instance used to determine if and how the request should be retried.
 	 */
-	public RetryProfile shouldRetry(Request request, Response response);
+	public RetryProfile shouldRetry(Work work, Response response);
 
 }

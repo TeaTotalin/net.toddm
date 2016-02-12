@@ -964,7 +964,7 @@ public final class CommManager {
 		private void handleWorkUpdatesOnException(Exception e) {
 
 			// Check for an exception triggered retry
-			RetryProfile retryProfile = CommManager.this._retryPolicyProvider.shouldRetry(this._work.getRequest(), e);
+			RetryProfile retryProfile = CommManager.this._retryPolicyProvider.shouldRetry(this._work, e);
 			synchronized(_workManagmentLock) {
 				if(!this._work.isDone()) {
 					if(retryProfile.shouldRetry()) {
@@ -998,7 +998,7 @@ public final class CommManager {
 		private void handleWorkUpdatesOnResponse(Response response, HttpURLConnection urlConnection) {
 
 			// Check for a response triggered retry or redirect
-			RetryProfile retryProfile = CommManager.this._retryPolicyProvider.shouldRetry(this._work.getRequest(), response);
+			RetryProfile retryProfile = CommManager.this._retryPolicyProvider.shouldRetry(this._work, response);
 			if(retryProfile.shouldRetry()) {
 
 				// ************ RETRY ************

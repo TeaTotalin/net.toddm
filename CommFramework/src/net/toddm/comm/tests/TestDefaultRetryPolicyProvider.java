@@ -19,12 +19,17 @@ import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import junit.framework.TestCase;
 import net.toddm.cache.CachePriority;
 import net.toddm.cache.DefaultLogger;
 import net.toddm.comm.CommManager;
 import net.toddm.comm.DefaultRetryPolicyProvider;
+import net.toddm.comm.DependentWorkListener;
+import net.toddm.comm.Priority;
 import net.toddm.comm.Priority.StartingPriority;
 import net.toddm.comm.Request;
 import net.toddm.comm.Request.RequestMethod;
@@ -40,16 +45,16 @@ public class TestDefaultRetryPolicyProvider extends TestCase {
 		DefaultRetryPolicyProvider retryPolicyProvider = new DefaultRetryPolicyProvider(new DefaultLogger());
 
 		// Test that an idempotent request will get retried for SocketTimeoutException
-		RetryProfile retryProfile = retryPolicyProvider.shouldRetry(new RequestStub(), new SocketTimeoutException());
+		RetryProfile retryProfile = retryPolicyProvider.shouldRetry(new WorkStub(), new SocketTimeoutException());
 		assertTrue(retryProfile.shouldRetry());
 		assertEquals(3000, retryProfile.getRetryAfterMilliseconds());
 
 		// Test that an idempotent request will NOT get retried for NullPointerException
-		retryProfile = retryPolicyProvider.shouldRetry(new RequestStub(), new NullPointerException());
+		retryProfile = retryPolicyProvider.shouldRetry(new WorkStub(), new NullPointerException());
 		assertFalse(retryProfile.shouldRetry());
 
 		// Test that requests flagged as not idempotent do not get retried on error
-		retryProfile = retryPolicyProvider.shouldRetry(new RequestStub(false), new SocketTimeoutException());
+		retryProfile = retryPolicyProvider.shouldRetry(new WorkStub(false), new SocketTimeoutException());
 		assertFalse(retryProfile.shouldRetry());
 	}
 
@@ -57,14 +62,14 @@ public class TestDefaultRetryPolicyProvider extends TestCase {
 
 		DefaultRetryPolicyProvider retryPolicyProvider = new DefaultRetryPolicyProvider(new DefaultLogger());
 
-		RetryProfile retryProfile = retryPolicyProvider.shouldRetry(new RequestStub(), new ResponseStub(302, null));
+		RetryProfile retryProfile = retryPolicyProvider.shouldRetry(new WorkStub(), new ResponseStub(302, null));
 		assertFalse(retryProfile.shouldRetry());
 
-		retryProfile = retryPolicyProvider.shouldRetry(new RequestStub(), new ResponseStub(503, 13L));
+		retryProfile = retryPolicyProvider.shouldRetry(new WorkStub(), new ResponseStub(503, 13L));
 		assertTrue(retryProfile.shouldRetry());
 		assertEquals(13000L, retryProfile.getRetryAfterMilliseconds());  // Header is in seconds, interval is in milliseconds
 
-		retryProfile = retryPolicyProvider.shouldRetry(new RequestStub(), new ResponseStub(202, 14L));
+		retryProfile = retryPolicyProvider.shouldRetry(new WorkStub(), new ResponseStub(202, 14L));
 		assertTrue(retryProfile.shouldRetry());
 		assertEquals(14000L, retryProfile.getRetryAfterMilliseconds());  // Header is in seconds, interval is in milliseconds
 	}
@@ -121,5 +126,40 @@ public class TestDefaultRetryPolicyProvider extends TestCase {
 			super(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, isIdempotent);
 		}
 	};
+	
+	private class WorkStub implements Work {
+
+		private final Request request;
+		private final Response response = new ResponseStub(302, null);
+		WorkStub() throws URISyntaxException {
+			this(true);
+		}
+		WorkStub(boolean isIdempotent) throws URISyntaxException {
+			request = new RequestStub(isIdempotent);
+		}
+
+		@Override
+		public Status getState() { return(Status.COMPLETED); }
+		@Override
+		public int getId() { return(request.getId()); }
+		@Override
+		public Response get() throws InterruptedException, ExecutionException { return(response); }
+		@Override
+		public Response get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException { return(response); }
+		@Override
+		public Request getRequest() { return(request); }
+		@Override
+		public Priority getRequestPriority() { return(new Priority(this, Priority.StartingPriority.MEDIUM)); }
+		@Override
+		public CachePriority getCachingPriority() { return(CachePriority.NORMAL); }
+		@Override
+		public CacheBehavior getCachingBehavior() { return(CacheBehavior.NORMAL); }
+		@Override
+		public boolean isDone() { return(true); }
+		@Override
+		public boolean isCancelled() { return(false); }
+		@Override
+		public void setDependentWork(Work dependentWork, DependentWorkListener dependentWorkListener) {}
+	}
 
 }
