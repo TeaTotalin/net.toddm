@@ -106,6 +106,10 @@ class CachedWork implements Work {
 
 	/** This implementation is <b>no-op</b>.  Cached work has already been processed. */
 	@Override
-	public void setDependentWork(Work dependentWork, DependentWorkListener dependentWorkListener) { }
+	public void setDependentWork(SubmittableWork dependentWork, DependentWorkListener dependentWorkListener) { }
+
+	/** This implementation will always return <b>null</b>.  Cached work has already finished successfully. */
+	@Override
+	public Exception getException() { return(null); }
 
 }

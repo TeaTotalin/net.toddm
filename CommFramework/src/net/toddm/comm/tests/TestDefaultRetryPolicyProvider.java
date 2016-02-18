@@ -36,6 +36,7 @@ import net.toddm.comm.Request.RequestMethod;
 import net.toddm.comm.CacheBehavior;
 import net.toddm.comm.Response;
 import net.toddm.comm.RetryProfile;
+import net.toddm.comm.SubmittableWork;
 import net.toddm.comm.Work;
 
 public class TestDefaultRetryPolicyProvider extends TestCase {
@@ -159,7 +160,9 @@ public class TestDefaultRetryPolicyProvider extends TestCase {
 		@Override
 		public boolean isCancelled() { return(false); }
 		@Override
-		public void setDependentWork(Work dependentWork, DependentWorkListener dependentWorkListener) {}
+		public void setDependentWork(SubmittableWork dependentWork, DependentWorkListener dependentWorkListener) {}
+		@Override
+		public Exception getException() { return(null); }
 	}
 
 }

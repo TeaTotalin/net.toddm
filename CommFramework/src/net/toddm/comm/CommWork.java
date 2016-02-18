@@ -53,6 +53,7 @@ class CommWork implements Work {
 	private Response _response = null;
 	private CacheEntry _cachedResponse = null;
 	private long _retryAfterTimestamp = 0;
+	private Exception _exception = null;
 
 	private CommWork _dependentWork = null;
 	private DependentWorkListener _dependentWorkListener = null;
@@ -188,6 +189,17 @@ class CommWork implements Work {
 		this._retryAfterTimestamp = System.currentTimeMillis() + deltaInMilliseconds;
 	}
 
+	/** Can be used to set an {@link Exception} instance that is considered relevant to this work. */
+	protected void setException(Exception exception) {
+		this._exception = exception;
+	}
+
+	/** {@inheritDoc} */
+	@Override
+	public Exception getException() {
+		return (this._exception);
+	}
+
 	/**
 	 * Returns the ID of this {@link CommWork} instance. The ID of the underlying 
 	 * {@link Request} is used. See {@link Request#getId()} for details.
@@ -318,7 +330,7 @@ class CommWork implements Work {
 
 	/** {@inheritDoc} */
 	@Override
-	public void setDependentWork(Work dependentWork, DependentWorkListener dependentWorkListener) {
+	public void setDependentWork(SubmittableWork dependentWork, DependentWorkListener dependentWorkListener) {
 
 		// NULL is a valid value for both parameters
 

@@ -19,14 +19,12 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import net.toddm.cache.CachePriority;
-
 /**
- * An interface implemented by the Comm Framework to publicly express units of work.
+ * An interface implemented by the Comm Framework to publicly express units of work that are being managed by the framework.
  * <p>
  * @author Todd S. Murchison
  */
-public interface Work {
+public interface Work extends SubmittableWork {
 
 	/** An set of possible states that work can be in */
 	public enum Status {
@@ -50,12 +48,6 @@ public interface Work {
 	public Status getState();
 
 	/**
-	 * Returns the ID of this {@link Work} instance. The ID of the underlying 
-	 * {@link Request} is used. See {@link Request#getId()} for details.
-	 */
-	public int getId();
-
-	/**
 	 * Waits if necessary for the computation to complete, and then retrieves its result.
 	 * <p>
 	 * @return The computed result.
@@ -77,17 +69,11 @@ public interface Work {
 	 */
 	public Response get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException;
 
-	/** Returns the {@link Request} instance associated with this {@link Work} instance. */
-	public Request getRequest();
-
-	/** Returns the request {@link Priority} of this {@link Work} instance. */
-	public Priority getRequestPriority();
-
-	/** Returns the caching {@link CachePriority} of this {@link Work} instance, or <b>null<b> if it had no priority set. */
-	public CachePriority getCachingPriority();
-
-	/** Returns the caching {@link CacheBehavior} of this {@link Work} instance, or <b>null<b> if it had no behavior set. */
-	public CacheBehavior getCachingBehavior();
+	/**
+	 * Returns an {@link Exception} instance that is relevant to this {@link Work} instance, or <b>null</b> if there is none.
+	 * If this work fails without a {@link Response} this can be used to understand why (socket timeout, etc.).
+	 */
+	public Exception getException();
 
 	/**
 	 * Returns true if this work completed. Completion may be due to normal termination, an 
@@ -97,16 +83,5 @@ public interface Work {
 
 	/** Returns true if this work was cancelled before it completed normally. */
 	public boolean isCancelled();
-
-	/**
-	 * Causes this {@link Work} to be dependent on the provided Work. When processing this Work the {@link CommManager} will 
-	 * ensure that the given Work is processed first.  This may include pausing the current Work, starting the dependent Work 
-	 * if it has not yet been started, etc.
-	 * 
-	 * @param dependentWork An instance of {@link Work} that must finish processing before this instance is processed.
-	 * @param dependentWorkListener [OPTIONAL] Can be NULL.  If provided, this callback is made with the results of the 
-	 * dependent Work before the current work is processed.
-	 */
-	public void setDependentWork(Work dependentWork, DependentWorkListener dependentWorkListener);
 
 }

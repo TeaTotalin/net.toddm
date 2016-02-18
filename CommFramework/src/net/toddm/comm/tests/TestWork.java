@@ -15,14 +15,20 @@
 // ***************************************************************************
 package net.toddm.comm.tests;
 
+import java.net.SocketTimeoutException;
 import java.net.URI;
+import java.util.HashMap;
+import java.util.concurrent.ExecutionException;
 
 import net.toddm.cache.CachePriority;
 import net.toddm.cache.DefaultLogger;
 import net.toddm.comm.CacheBehavior;
 import net.toddm.comm.CommManager;
+import net.toddm.comm.DefaultConfigurationProvider;
 import net.toddm.comm.DependentWorkListener;
+import net.toddm.comm.MapConfigurationProvider;
 import net.toddm.comm.Response;
+import net.toddm.comm.SubmittableWork;
 import net.toddm.comm.Work;
 import net.toddm.comm.Priority.StartingPriority;
 import net.toddm.comm.Request.RequestMethod;
@@ -31,6 +37,36 @@ import junit.framework.TestCase;
 
 public class TestWork extends TestCase {
 
+	public void testGetException() throws Exception {
+
+		CommManager.Builder commManagerBuilder = new CommManager.Builder();
+		CommManager commManagerThatWillTimeout = commManagerBuilder
+				.setConfigurationProvider(new MapConfigurationProvider(
+					new HashMap<String, Object>() {
+						private static final long serialVersionUID = 9063689608986469630L;
+						{
+							put(DefaultConfigurationProvider.KeyConnectTimeoutMilliseconds, 1);
+							put(DefaultConfigurationProvider.KeyReadTimeoutMilliseconds, 1);
+						}
+					}))
+				.setName("TEST")
+				.setLoggingProvider(new DefaultLogger())
+				.create();
+
+		Work work = commManagerThatWillTimeout.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, false, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+        assertNotNull(work);
+
+        try {
+        	Response response = work.get();
+        	assertNull(response);
+        } catch(ExecutionException e) {
+        	// Depending on the timing of the get() call the socket timeout can cause this
+        }
+
+        assertNotNull(work.getException());
+        assertTrue(work.getException() instanceof SocketTimeoutException);
+	}
+
 	public void testDependentWorkCallbackAllowsCurrentWork() throws Exception {
 
 		CommManager commManager = (new CommManager.Builder())
@@ -38,10 +74,10 @@ public class TestWork extends TestCase {
 				.setLoggingProvider(new DefaultLogger())
 				.create();
 
-		final Work work1 = commManager.getWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
-		final Work work2 = commManager.getWork(new URI("http://toddm.net/art/index.html"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
-		final Work work3 = commManager.getWork(new URI("http://toddm.net/ants/index.html"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
-		final Work work4 = commManager.getWork(new URI("http://toddm.net/gravity/index.html"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		final SubmittableWork work1 = commManager.getWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		final SubmittableWork work2 = commManager.getWork(new URI("http://toddm.net/art/index.html"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		final SubmittableWork work3 = commManager.getWork(new URI("http://toddm.net/ants/index.html"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		final SubmittableWork work4 = commManager.getWork(new URI("http://toddm.net/gravity/index.html"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
 
 		DependentWorkListener dependentWorkListener = new DependentWorkListener() {
 			@Override
@@ -64,15 +100,15 @@ public class TestWork extends TestCase {
 		assertNotNull(result);
 		assertTrue(result.isSuccessful());
 		
-		Response result2 = work2.get();
+		Response result2 = ((Work)work2).get();
 		assertNotNull(result2);
 		assertTrue(result2.isSuccessful());
 
-		Response result3 = work3.get();
+		Response result3 = ((Work)work3).get();
 		assertNotNull(result3);
 		assertTrue(result3.isSuccessful());
 		
-		Response result4 = work4.get();
+		Response result4 = ((Work)work4).get();
 		assertNotNull(result4);
 		assertTrue(result4.isSuccessful());
 	}
@@ -84,8 +120,8 @@ public class TestWork extends TestCase {
 				.setLoggingProvider(new DefaultLogger())
 				.create();
 
-		final Work work1 = commManager.getWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
-		final Work work2 = commManager.getWork(new URI("http://toddm.net/art/index.html"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		final SubmittableWork work1 = commManager.getWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		final SubmittableWork work2 = commManager.getWork(new URI("http://toddm.net/art/index.html"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
 
 		DependentWorkListener dependentWorkListener = new DependentWorkListener() {
 			@Override
@@ -104,7 +140,7 @@ public class TestWork extends TestCase {
 		assertNull(result);
 		assertEquals(Status.CANCELLED, work.getState());
 
-		Response result2 = work2.get();
+		Response result2 = ((Work)work2).get();
 		assertNotNull(result2);
 		assertTrue(result2.isSuccessful());
 	}
@@ -116,11 +152,11 @@ public class TestWork extends TestCase {
 				.setLoggingProvider(new DefaultLogger())
 				.create();
 
-		Work work1 = commManager.getWork(new URI("http://www.toddm.net/one"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
-		Work work2 = commManager.getWork(new URI("http://www.toddm.net/two"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
-		Work work3 = commManager.getWork(new URI("http://www.toddm.net/three"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
-		Work work4 = commManager.getWork(new URI("http://www.toddm.net/four"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
-		Work work5 = commManager.getWork(new URI("http://www.toddm.net/five"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		SubmittableWork work1 = commManager.getWork(new URI("http://www.toddm.net/one"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		SubmittableWork work2 = commManager.getWork(new URI("http://www.toddm.net/two"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		SubmittableWork work3 = commManager.getWork(new URI("http://www.toddm.net/three"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		SubmittableWork work4 = commManager.getWork(new URI("http://www.toddm.net/four"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		SubmittableWork work5 = commManager.getWork(new URI("http://www.toddm.net/five"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
 
 		work1.setDependentWork(work2, null);
 		work2.setDependentWork(work3, null);

@@ -169,7 +169,7 @@ public final class CommManager {
 	 * @param cachingPriority A hint to the caching provider (if there is one) of the relative priority of the cache entry generated for this response.
 	 * @param cachingBehavior Indicates what caching behavior should be used for the results of the enqueued work.
 	 */
-	public Work getWork(
+	public SubmittableWork getWork(
 			URI uri, 
 			Request.RequestMethod method, 
 			byte[] postData, 
@@ -210,12 +210,12 @@ public final class CommManager {
 	}
 
 	/**
-	 * Enters a request into the communications framework for processing. The {@link Work} instance returned may not be the same as the 
-	 * Work instance passed in.  The returned instance can be used to wait on the request, manage the request, get results, etc.
+	 * Enters a request into the communications framework for processing. The returned instance 
+	 * of {@link Work} can be used to wait on the request, manage the request, get results, etc.
 	 * <p>
-	 * @param work The {@link Work} instance describing the request to process.
+	 * @param work The {@link SubmittableWork} instance describing the request to process.
 	 */
-	public Work enqueueWork(Work work) {
+	public Work enqueueWork(SubmittableWork work) {
 
 		if(work == null) { throw(new IllegalArgumentException("'work' can not be NULL")); }
 		if(!(work instanceof CommWork)) { throw(new IllegalArgumentException("Unsupported 'work' implmenetation: " + work.getClass().getSimpleName())); }
@@ -912,7 +912,8 @@ public final class CommManager {
 
 				} catch(Exception e) {
 
-					// The content length header can lie causing content reading to explode, log and proceed as if there was no content
+					// The content length header can lie causing content reading to explode, log and proceed as if there was no content.
+					// Do not set the Exception on the Work for this case.
 					if(_logger != null) { _logger.error(e, this._logPrefix); }
 				}
 
@@ -931,9 +932,14 @@ public final class CommManager {
 				this.handleWorkUpdatesOnResponse(response, urlConnection);
 
 			} catch (MalformedURLException e) {
+				this._work.setException(e);
 				throw(new CommException(e));
 			} catch (IOException e) {
+				this._work.setException(e);
 				throw(new CommException(e));
+			} catch(Exception e) {
+				this._work.setException(e);
+				throw(e);
 			} finally {
 
 				// Always clean up
@@ -962,6 +968,9 @@ public final class CommManager {
 
 		/** This method updates the current work state based on the given exception.  The work is either queued for retry or marked as completed. */
 		private void handleWorkUpdatesOnException(Exception e) {
+
+			// Set the Exception on the Work instance
+			this._work.setException(e);
 
 			// Check for an exception triggered retry
 			RetryProfile retryProfile = CommManager.this._retryPolicyProvider.shouldRetry(this._work, e);

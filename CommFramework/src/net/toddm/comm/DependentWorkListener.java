@@ -16,7 +16,7 @@
 package net.toddm.comm;
 
 /**
- * This interface is implemented by parties that are providing dependent work via {@link Work#setDependentWork(Work, DependentWorkListener)}.
+ * This interface is implemented by parties that are providing dependent work via {@link Work#setDependentWork(SubmittableWork, DependentWorkListener)}.
  * <p>
  * @author Todd S. Murchison
  */
