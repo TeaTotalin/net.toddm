@@ -889,12 +889,17 @@ public final class CommManager {
 						byte[] data = new byte[512];
 
 						// Support GZIPed responses
-						in = urlConnection.getInputStream();
+						try {
+							in = urlConnection.getInputStream();
+						} catch(IOException ioe) {
+							if(_logger != null) { _logger.debug("%1$s getInputStream() failed, trying getErrorStream()", this._logPrefix); }
+							in = urlConnection.getErrorStream();
+						}
 						String contentEncoding = null;
 						try {
 							contentEncoding = Response.getContentEncoding(urlConnection.getHeaderFields());
 						} catch(Exception e) {
-							if(_logger != null) { _logger.error(e, "Failed to parse value from 'Content-Encoding' header"); }  // No-op OK
+							if(_logger != null) { _logger.error(e, "%1$s Failed to parse value from 'Content-Encoding' header", this._logPrefix); }  // No-op OK
 						}
 						if ((contentEncoding != null) && (contentEncoding.length() > 0) && (contentEncoding.equalsIgnoreCase("gzip"))) {
 						    in = new GZIPInputStream(in);
