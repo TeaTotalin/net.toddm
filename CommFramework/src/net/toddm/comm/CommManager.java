@@ -706,21 +706,16 @@ public final class CommManager {
 					if(_logger != null) {
 						_logger.debug("%1$s Response code: %2$d", this._logPrefix, response.getResponseCode());
 						if((response.getResponseBody() != null) && (response.getResponseBody().length() > 0)) {
-							_logger.debug("%1$s Response body:\r\n%2$s", this._logPrefix, response.getResponseBody());
+							_logger.debug("%1$s Response body: %2$s", this._logPrefix, response.getResponseBody());
 						}
 						if((response.getHeaders() != null) && (response.getHeaders().size() > 0)) {
-							StringBuilder logMsg = new StringBuilder(this._logPrefix);
-							logMsg.append(" Response headers:\r\n");
 							for(String name : response.getHeaders().keySet()) {
+								StringBuilder logMsg = new StringBuilder(String.format(Locale.US,  "%1$s    Response header '%2$s':", this._logPrefix, name));
 								for(String value : response.getHeaders().get(name)) {
-									logMsg.append(":      ");
-									logMsg.append(name);
-									logMsg.append(" = ");
-									logMsg.append(value);
-									logMsg.append("\r\n");
+									logMsg.append(String.format(Locale.US,  " '%1$s'", value));
 								}
+								_logger.debug(logMsg.toString());
 							}
-							_logger.debug("%1$s %2$s", this._logPrefix, logMsg.toString());
 						}
 					}
 				}
