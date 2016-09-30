@@ -209,12 +209,12 @@ public class DBCacheProvider extends SQLiteOpenHelper implements CacheProvider {
                     // Insert a new record
                     if(this._logger != null) { this._logger.debug("Inserting cache entry '%1$s'", key); }
                     values.put("timestampCreated", now);
-                    result = (this.getWritableDatabase().insert(_DatabaseTableName, null, values) != -1);
+                    result = (this.getWritableDatabase().insertOrThrow(_DatabaseTableName, null, values) != -1);
                 }
                 return(result);
             }
 
-        } catch (SQLiteException e) {
+        } catch (Exception e) {
             if(this._logger != null) { this._logger.error(e, "add() failed"); }
             return (false);
         }
