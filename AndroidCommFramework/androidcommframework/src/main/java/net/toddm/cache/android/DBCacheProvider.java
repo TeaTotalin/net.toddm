@@ -137,7 +137,7 @@ public class DBCacheProvider extends SQLiteOpenHelper implements CacheProvider {
         synchronized (this._databaseAccessLock) {
             if(this._logger != null) { this._logger.debug("Upgrading database from version %1$d to %2$d (dropping all data)", oldVersion, newVersion); }
             db.execSQL("DROP TABLE IF EXISTS " + _DatabaseTableName);
-            db.execSQL(_DatabaseTableName);
+            db.execSQL(_DatabaseCreateSQL);
         }
     }
 
