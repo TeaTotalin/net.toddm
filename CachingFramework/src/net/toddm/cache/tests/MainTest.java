@@ -150,6 +150,58 @@ public class MainTest extends TestCase {
 		
 		validateLru(cacheProvider);
 		validateEvictionScores(cacheProvider);
+		validateCacheEntryTimestamps(cacheProvider);
+	}
+
+	public static void validateCacheEntryTimestamps(CacheProvider cacheProvider) throws Exception {
+		cacheProvider.removeAll();
+		assertEquals(0, cacheProvider.size(true));
+
+		long created = System.currentTimeMillis();
+		cacheProvider.add("key1", "value1", 1000L, 1000L, null, null, CachePriority.NORMAL);
+		CacheEntry entry = cacheProvider.get("key1", true);
+		assertNotNull(entry);
+
+		long createdActual = entry.getTimestampCreated();
+		assertEquals(createdActual, created, 10);
+		assertEquals(createdActual, (long)entry.getTimestampModified());
+		assertEquals(createdActual, (long)entry.getTimestampUsed(), 10);
+
+		assertFalse(entry.hasExpired());
+		assertFalse(entry.hasExceededStaleUse());
+		
+		Thread.sleep(1001);
+
+		assertTrue(entry.hasExpired());
+		assertFalse(entry.hasExceededStaleUse());
+
+		Thread.sleep(1001);
+
+		assertTrue(entry.hasExpired());
+		assertTrue(entry.hasExceededStaleUse());
+
+		long modified = System.currentTimeMillis();
+		cacheProvider.add("key1", "value1", 1000L, 1000L, null, null, CachePriority.NORMAL);
+		entry = cacheProvider.get("key1", true);
+		assertNotNull(entry);
+
+		long modifiedActual = entry.getTimestampModified();
+		assertEquals(modifiedActual, modified, 10);
+		assertEquals(createdActual, (long)entry.getTimestampCreated());
+		assertEquals(modifiedActual, (long)entry.getTimestampUsed(), 10);
+
+		assertFalse(entry.hasExpired());
+		assertFalse(entry.hasExceededStaleUse());
+		
+		Thread.sleep(1001);
+
+		assertTrue(entry.hasExpired());
+		assertFalse(entry.hasExceededStaleUse());
+
+		Thread.sleep(1001);
+
+		assertTrue(entry.hasExpired());
+		assertTrue(entry.hasExceededStaleUse());
 	}
 
 	public static void validateLru(CacheProvider cacheProvider) throws Exception {

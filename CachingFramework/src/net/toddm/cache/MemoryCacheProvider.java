@@ -75,7 +75,7 @@ public class MemoryCacheProvider implements CacheProvider {
 	public boolean add(String key, String value, long ttl, long maxStale, String eTag, URI sourceUri, CachePriority priority) {
 
 		// The constructor used in the line below does argument validation
-		CacheEntryWithEvictionScore newEntry = new CacheEntryWithEvictionScore(key, value, ttl, maxStale, eTag, sourceUri, priority);
+		CacheEntryWithEvictionScore newEntry = this.getNewOrUpdatedCacheEntry(key, value, null, ttl, maxStale, eTag, sourceUri, priority);
 		this._keyToEntry.put(this.getLookupKey(key), newEntry);
 		this.updateEvictionScores(newEntry.getTimestampUsed());
 
@@ -90,7 +90,7 @@ public class MemoryCacheProvider implements CacheProvider {
 	public boolean add(String key, byte[] value, long ttl, long maxStale, String eTag, URI sourceUri, CachePriority priority) {
 
 		// The constructor used in the line below does argument validation
-		CacheEntryWithEvictionScore newEntry = new CacheEntryWithEvictionScore(key, value, ttl, maxStale, eTag, sourceUri, priority);
+		CacheEntryWithEvictionScore newEntry = this.getNewOrUpdatedCacheEntry(key, null, value, ttl, maxStale, eTag, sourceUri, priority);
 		this._keyToEntry.put(this.getLookupKey(key), newEntry);
 		this.updateEvictionScores(newEntry.getTimestampUsed());
 
@@ -214,6 +214,43 @@ public class MemoryCacheProvider implements CacheProvider {
 	}
 
 	/**
+	 * Creates a new instance of {@link CacheEntryWithEvictionScore}. If there is already a cache entry with the given key
+	 * then this new instance reflects updated values and timestamps, but preserves the creation timestamp. If there is no
+	 * pre-existing cache entry then the new instances has a creation timestamp of the current time.
+	 */
+	private CacheEntryWithEvictionScore getNewOrUpdatedCacheEntry(
+			String key, 
+			String valueString, 
+			byte[] valueBytes, 
+			long ttl, 
+			long maxStale, 
+			String eTag, 
+			URI sourceUri, 
+			CachePriority priority) 
+	{
+		CacheEntryWithEvictionScore newEntry = null;
+		CacheEntryWithEvictionScore oldEntry = this._keyToEntry.get(this.getLookupKey(key));
+		if(oldEntry != null) {
+
+			long now = System.currentTimeMillis();
+			if(valueBytes == null) {
+				newEntry = new CacheEntryWithEvictionScore(key, valueString, ttl, maxStale, eTag, sourceUri, oldEntry.getTimestampCreated(), now, now, priority);
+			} else {
+				newEntry = new CacheEntryWithEvictionScore(key, valueBytes, ttl, maxStale, eTag, sourceUri, oldEntry.getTimestampCreated(), now, now, priority);
+			}
+		} else {
+
+			if(valueBytes == null) {
+				newEntry = new CacheEntryWithEvictionScore(key, valueString, ttl, maxStale, eTag, sourceUri, priority);
+			} else {
+				newEntry = new CacheEntryWithEvictionScore(key, valueBytes, ttl, maxStale, eTag, sourceUri, priority);
+			}
+		}
+
+		return(newEntry);
+	}
+
+	/**
 	 * Returns the oldest "last use" time found in the cache, or the current time if the cache is empty.
 	 * Time is returned as an epoch time in milliseconds.
 	 */
@@ -263,6 +300,42 @@ public class MemoryCacheProvider implements CacheProvider {
 
 		public CacheEntryWithEvictionScore(String key, byte[] value, long ttl, long maxStale, String eTag, URI sourceUri, CachePriority priority) {
 			super(key, value, ttl, maxStale, eTag, sourceUri, priority);
+
+			// Calculate an initial eviction score (to avoid timing problems with access to our ConcurrentHashMap later)
+			this.updateEvictionScore(this.getTimestampUsed(), MemoryCacheProvider.this.getOldestUse());
+		}
+
+		public CacheEntryWithEvictionScore(
+				String key, 
+				String value, 
+				long ttl, 
+				long maxStale, 
+				String eTag, 
+				URI sourceUri, 
+				long timestampCreated, 
+				long timestampModified, 
+				long timestampUsed, 
+				CachePriority priority) 
+		{
+			super(key, value, null, ttl, maxStale, eTag, sourceUri, timestampCreated, timestampModified, timestampUsed, priority);
+
+			// Calculate an initial eviction score (to avoid timing problems with access to our ConcurrentHashMap later)
+			this.updateEvictionScore(this.getTimestampUsed(), MemoryCacheProvider.this.getOldestUse());
+		}
+
+		public CacheEntryWithEvictionScore(
+				String key, 
+				byte[] value, 
+				long ttl, 
+				long maxStale, 
+				String eTag, 
+				URI sourceUri, 
+				long timestampCreated, 
+				long timestampModified, 
+				long timestampUsed, 
+				CachePriority priority) 
+		{
+			super(key, null, value, ttl, maxStale, eTag, sourceUri, timestampCreated, timestampModified, timestampUsed, priority);
 
 			// Calculate an initial eviction score (to avoid timing problems with access to our ConcurrentHashMap later)
 			this.updateEvictionScore(this.getTimestampUsed(), MemoryCacheProvider.this.getOldestUse());

@@ -200,7 +200,7 @@ public class CacheEntry {
 	public CachePriority getPriority() { return(this._priority); }
 
 	/**
-	 * If this {@link CacheEntry} instance has expired, based on it's TTL value and creation 
+	 * If this {@link CacheEntry} instance has expired, based on it's TTL value and last modified 
 	 * time, this method will return <b>true</b>, otherwise <b>false</b> is returned.
 	 */
 	public boolean hasExpired() {
@@ -209,8 +209,8 @@ public class CacheEntry {
 		if(this.getTtl() == null) { return(false); }
 
 		// Check if we have overflowed long max value and if we have default to max value
-		long expiresOn = this.getTimestampCreated() + this.getTtl();
-		if(expiresOn < this.getTimestampCreated()) {
+		long expiresOn = this._timestampModified + this.getTtl();
+		if(expiresOn < this._timestampModified) {
 			expiresOn = Long.MAX_VALUE;
 		}
 
@@ -220,7 +220,7 @@ public class CacheEntry {
 
 	/**
 	 * If this {@link CacheEntry} instance should no longer be used, based on it's TTL value, max-stale 
-	 * value, and creation time, this method will return <b>true</b>, otherwise <b>false</b> is returned.
+	 * value, and last modified time, this method will return <b>true</b>, otherwise <b>false</b> is returned.
 	 * <p>
 	 * Even an expired cache entry can still be considered usable as long as it's age does not yet 
 	 * exceed it's TTL value plus it's max-stale value.
@@ -234,8 +234,8 @@ public class CacheEntry {
 		if(this.getMaxStale() == null) { return(true); }
 
 		// Check if we have overflowed long max value and if we have default to max value
-		long staleExpiresOn = this.getTimestampCreated() + this.getTtl() + this.getMaxStale();
-		if(staleExpiresOn < this.getTimestampCreated()) {
+		long staleExpiresOn = this._timestampModified + this.getTtl() + this.getMaxStale();
+		if(staleExpiresOn < this._timestampModified) {
 			staleExpiresOn = Long.MAX_VALUE;
 		}
 
