@@ -102,7 +102,9 @@
     <orderEntry type="library" exported="" name="support-v4-22.0.0" level="project" />
     <orderEntry type="library" exported="" name="support-annotations-22.0.0" level="project" />
     <orderEntry type="module" module-name="androidcommframework" exported="" />
+    <orderEntry type="library" exported="" name="okhttp-3.5.0" level="project" />
     <orderEntry type="library" exported="" name="CommFramework-0.0.1-SNAPSHOT" level="project" />
+    <orderEntry type="library" exported="" name="okio-1.11.0" level="project" />
     <orderEntry type="library" exported="" name="CachingFramework-0.0.1-SNAPSHOT" level="project" />
   </component>
 </module>
