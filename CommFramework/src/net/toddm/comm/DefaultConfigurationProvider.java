@@ -58,9 +58,9 @@ public class DefaultConfigurationProvider extends MapConfigurationProvider {
 	 * implementers may prefer to make use of Java's built in redirection support as provided by the java.net classes. If this config value is 
 	 * set to <b>false</b> (the default) then redirection is provided by the Comm Framework, otherwise redirection is provided by java.net.
 	 */
-	public static final String KeyUseBuiltInRedirectionSupport = "use_built_in_http_url_connection_redirection_support";
+	public static final String KeyUseBuiltInHttpURLConnectionRedirectionSupport = "use_built_in_http_url_connection_redirection_support";
 	/** The default value for what request redirection support to use. */
-	public static final boolean ValueUseBuiltInRedirectionSupport = false;
+	public static final boolean ValueUseBuiltInHttpURLConnectionRedirectionSupport = false;
 	//***************** Supported config keys
 
 	private static final Map<String, Object> _DefaultConfig = new HashMap<String, Object>();
@@ -70,7 +70,7 @@ public class DefaultConfigurationProvider extends MapConfigurationProvider {
 		_DefaultConfig.put(KeyConnectTimeoutMilliseconds, ValueConnectTimeoutMilliseconds);
 		_DefaultConfig.put(KeyReadTimeoutMilliseconds, ValueReadTimeoutMilliseconds);
 		_DefaultConfig.put(KeyDisableSSLCertChecking, ValueDisableSSLCertChecking);
-		_DefaultConfig.put(KeyUseBuiltInRedirectionSupport, ValueUseBuiltInRedirectionSupport);
+		_DefaultConfig.put(KeyUseBuiltInHttpURLConnectionRedirectionSupport, ValueUseBuiltInHttpURLConnectionRedirectionSupport);
 	}
 
 	public DefaultConfigurationProvider() {

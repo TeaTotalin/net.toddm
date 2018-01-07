@@ -24,8 +24,11 @@ import java.io.ObjectInput;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URI;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -38,16 +41,15 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.FutureTask;
-import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPInputStream;
 
 import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
-import okhttp3.OkHttpClient;
 import net.toddm.cache.CacheEntry;
 import net.toddm.cache.CachePriority;
 import net.toddm.cache.CacheProvider;
@@ -113,37 +115,13 @@ public final class CommManager {
 		} else {
 			this._disableSSLCertChecking = DefaultConfigurationProvider.ValueDisableSSLCertChecking;
 		}
-		if(this._configurationProvider.contains(DefaultConfigurationProvider.KeyUseBuiltInRedirectionSupport)) {
-			this._useBuiltInRedirectionSupport = this._configurationProvider.getBoolean(DefaultConfigurationProvider.KeyUseBuiltInRedirectionSupport);
+		if(this._configurationProvider.contains(DefaultConfigurationProvider.KeyUseBuiltInHttpURLConnectionRedirectionSupport)) {
+			this._useBuiltInHttpURLConnectionRedirectionSupport = this._configurationProvider.getBoolean(DefaultConfigurationProvider.KeyUseBuiltInHttpURLConnectionRedirectionSupport);
 		} else {
-			this._useBuiltInRedirectionSupport = DefaultConfigurationProvider.ValueUseBuiltInRedirectionSupport;
+			this._useBuiltInHttpURLConnectionRedirectionSupport = DefaultConfigurationProvider.ValueUseBuiltInHttpURLConnectionRedirectionSupport;
 		}
 
 		this._requestWorkExecutorService = Executors.newFixedThreadPool(this._maxSimultaneousRequests);
-
-		// Configure our instance of the OkHttpClient
-		OkHttpClient.Builder okHttpClientBuilder = new OkHttpClient.Builder();
-
-		// Support use of end-points with bad SSL certs via configuration to allow or disallow
-		if(this._disableSSLCertChecking) {
-			try {
-
-				SSLContext sslContext = SSLContext.getInstance("SSL");
-			    sslContext.init(null, _TrustAllCertsManagers, new java.security.SecureRandom());
-			    okHttpClientBuilder.sslSocketFactory(sslContext.getSocketFactory(), (X509TrustManager)_TrustAllCertsManagers[0]);
-			    okHttpClientBuilder.hostnameVerifier(_AllowAllHostnamesVerifier);
-				if(_logger != null) { _logger.debug("SSL cert checking disabled"); }
-
-			} catch (Exception e) {
-				if(_logger != null) { _logger.error(e, "Disabling SSL cert checking failed"); }
-			}
-		}
-
-		okHttpClientBuilder.followRedirects(this._useBuiltInRedirectionSupport);
-		okHttpClientBuilder.connectTimeout(this._connectTimeoutMilliseconds, TimeUnit.MILLISECONDS);
-		okHttpClientBuilder.readTimeout(this._readTimeoutMilliseconds, TimeUnit.MILLISECONDS);
-
-		this._okHttpClient = okHttpClientBuilder.build();
 
 		this.startWorking(name);
 	}
@@ -152,15 +130,12 @@ public final class CommManager {
 	// TODO: Expose this via config?
 	private static final int _DependentWorkRetryIntervalMilliseconds = 333;
 
-	// Our one instance of the OkHttpClient
-	private final OkHttpClient _okHttpClient;
-
 	private final int _redirectLimit;
 	private final int _maxSimultaneousRequests;
 	private final int _connectTimeoutMilliseconds;
 	private final int _readTimeoutMilliseconds;
 	private final boolean _disableSSLCertChecking;
-	private final boolean _useBuiltInRedirectionSupport;
+	private final boolean _useBuiltInHttpURLConnectionRedirectionSupport;
 
 	private final ExecutorService _requestWorkExecutorService;
 	private final LinkedList<CommWork> _queuedWork = new LinkedList<CommWork>();
@@ -737,7 +712,7 @@ public final class CommManager {
 							for(String name : response.getHeaders().keySet()) {
 								StringBuilder logMsg = new StringBuilder(String.format(Locale.US,  "%1$s    Response header '%2$s':", this._logPrefix, name));
 								for(String value : response.getHeaders().get(name)) {
-									logMsg.append(String.format(Locale.US,  " '%1$s'", value.replace("%", "%%")));
+									logMsg.append(String.format(Locale.US,  " '%1$s'", value));
 								}
 								_logger.debug(logMsg.toString());
 							}
@@ -763,6 +738,7 @@ public final class CommManager {
 
 			Response response = null;
 			InputStream in = null;
+			HttpURLConnection urlConnection = null;
 			try {
 				
 				// Guarantee dependent work order (if there is any)
@@ -806,42 +782,50 @@ public final class CommManager {
 					_logger.debug("%1$s Dependent Work completed [dependentWork:%2$d]", this._logPrefix, dependentWork.getId());
 				}
 
-				// Configure our request
-				okhttp3.Request.Builder requestBuilder = new okhttp3.Request.Builder().url(this._work.getRequest().getUri().toURL());
+				// Create our connection
+				URL url = this._work.getRequest().getUri().toURL();
+				urlConnection = (HttpURLConnection) url.openConnection();
+
+				// Support use of end-points with bad SSL certs via configuration to allow or disallow
+				if((urlConnection instanceof HttpsURLConnection) && (CommManager.this._disableSSLCertChecking)) {
+					try {
+					    SSLContext sslContext = SSLContext.getInstance("SSL");
+					    sslContext.init(null, _TrustAllCertsManagers, new java.security.SecureRandom());
+						((HttpsURLConnection)urlConnection).setSSLSocketFactory(sslContext.getSocketFactory());
+						((HttpsURLConnection)urlConnection).setHostnameVerifier(_AllowAllHostnamesVerifier);
+					} catch (Exception e) {
+						if(_logger != null) { _logger.error(e, "%1$s Disabling SSL cert checking failed", this._logPrefix); }
+					}
+				}
+
+				// Configure our connection
+				urlConnection.setInstanceFollowRedirects(CommManager.this._useBuiltInHttpURLConnectionRedirectionSupport);
+				urlConnection.setConnectTimeout(CommManager.this._connectTimeoutMilliseconds);
+				urlConnection.setReadTimeout(CommManager.this._readTimeoutMilliseconds);
+				urlConnection.setDoInput(true);
+				urlConnection.setRequestMethod(this._work.getRequest().getMethod().name());
 
 				// Add any common request headers. Headers set here will be overridden below if there are duplicates.
-				requestBuilder.header("Accept-Encoding", "gzip");
-				requestBuilder.header("Cache-Control", "no-transform");
+				urlConnection.setRequestProperty("Accept-Encoding", "gzip");
+				urlConnection.setRequestProperty("Cache-Control", "no-transform");
 
 				// Add request headers if we have any, overriding common headers set above if there are duplicates.
 				if(this._work.getRequest().getHeaders() != null) {
 					for(String name : this._work.getRequest().getHeaders().keySet()) {
-						requestBuilder.header(name, this._work.getRequest().getHeaders().get(name));
+						urlConnection.setRequestProperty(name, this._work.getRequest().getHeaders().get(name));
 					}
 				}
 
 				// If we have old cache content for this work set the "If-None-Match" header
 				CacheEntry cacheEntry = this._work.getCachedResponse();
 				if((cacheEntry != null) && (cacheEntry.getEtag() != null) && (cacheEntry.getEtag().length() > 0)) {
-					requestBuilder.header("If-None-Match", cacheEntry.getEtag());
+					urlConnection.setRequestProperty("If-None-Match", cacheEntry.getEtag());
 				}
-
-				// Add the POST body if we have one (OkHttp defaults the method to GET, so this is only needed if we are posting request body content)
-				if(	(RequestMethod.POST.equals(this._work.getRequest().getMethod())) && 
-					(this._work.getRequest().getPostData() != null) && 
-					(this._work.getRequest().getPostData().length > 0) )
-				{
-					// TODO: Support GZIPing requests based on configuration, size thresholds, etc. (http://stackoverflow.com/questions/26360858/okhttp-gzip-post-body)
-					okhttp3.RequestBody okBody = okhttp3.RequestBody.create(okhttp3.MediaType.parse("application/octet-stream"), this._work.getRequest().getPostData());
-					requestBuilder.method(this._work.getRequest().getMethod().name(), okBody);
-				}
-
-				okhttp3.Request okRequest = requestBuilder.build();
 
 				// Do some logging
 				if(_logger != null) {
-					_logger.debug("%1$s Making an HTTP %2$s request to %3$s", this._logPrefix, this._work.getRequest().getMethod().name(), okRequest.url().toString());
-					Map<String, List<String>> requestHeaders = okRequest.headers().toMultimap();
+					_logger.debug("%1$s Making an HTTP %2$s request to %3$s", this._logPrefix, this._work.getRequest().getMethod().name(), url.toString());
+					Map<String, List<String>> requestHeaders = urlConnection.getRequestProperties();
 					if(requestHeaders != null) {
 						for(String key : requestHeaders.keySet()) {
 							StringBuilder logMsg = new StringBuilder(String.format(Locale.US,  "%1$s    Request header '%2$s':", this._logPrefix, key));
@@ -853,18 +837,38 @@ public final class CommManager {
 					}
 				}
 
+				// Add the POST body if we have one (this must be done before establishing the connection)
+				if(	(RequestMethod.POST.equals(this._work.getRequest().getMethod())) && 
+					(this._work.getRequest().getPostData() != null) && 
+					(this._work.getRequest().getPostData().length > 0) )
+				{
+
+					// TODO: CONFIG: Support GZIPing requests based on configuration, size thresholds, etc.
+					urlConnection.setDoOutput(true);
+					OutputStream outStream = null;
+					try {
+						outStream = urlConnection.getOutputStream();
+						outStream.write(this._work.getRequest().getPostData());
+						outStream.flush();
+						if(_logger != null) { _logger.debug("%1$s Sending %2$d bytes of POST body data", this._logPrefix, this._work.getRequest().getPostData().length); }
+					} finally {
+				        if(outStream != null) { try { outStream.close(); } catch(Exception e) {} }  // Exception suppression is OK here
+					}
+				}
+
 				// Do the actual work on the wire
-				okhttp3.Response okResponse = null;
 				ByteArrayOutputStream buffer = new ByteArrayOutputStream();
 				try {
 
-					okResponse = _okHttpClient.newCall(okRequest).execute();
+					//**************************************** 
+					// Establish the connection. Any configuration that must be done prior to connecting must go above.
+					urlConnection.connect();
+					//****************************************
 
 				} catch(Exception e) {
 
 					if(_logger != null) { _logger.error(e, this._logPrefix); }
 
-					// TODO: Update failure re-try stuff for OKHttp
 					// Update the work state based on the exception
 					this.handleWorkUpdatesOnException(e);
 
@@ -875,24 +879,28 @@ public final class CommManager {
 				// Read the response
 				try {
 
-					okhttp3.ResponseBody okBody = okResponse.body();
-					if((okBody != null) && (okBody.contentLength() > 0)) {
+					if(urlConnection.getContentLength() > 0) {
 						int readCount;
 						byte[] data = new byte[512];
 
 						// Support GZIPed responses
+						try {
+							in = urlConnection.getInputStream();
+						} catch(IOException ioe) {
+							if(_logger != null) { _logger.debug("%1$s getInputStream() failed, trying getErrorStream()", this._logPrefix); }
+							in = urlConnection.getErrorStream();
+						}
 						String contentEncoding = null;
 						try {
-							contentEncoding = Response.getContentEncoding(okResponse.headers().toMultimap());
+							contentEncoding = Response.getContentEncoding(urlConnection.getHeaderFields());
 						} catch(Exception e) {
 							if(_logger != null) { _logger.error(e, "%1$s Failed to parse value from 'Content-Encoding' header", this._logPrefix); }  // No-op OK
 						}
 						if ((contentEncoding != null) && (contentEncoding.length() > 0) && (contentEncoding.equalsIgnoreCase("gzip"))) {
-						    in = new GZIPInputStream(okBody.byteStream());
+						    in = new GZIPInputStream(in);
 							if(_logger != null) { _logger.debug("%1$s Received gzipped data", this._logPrefix); }
 						}
 						else{
-							in = okBody.byteStream();
 							if(_logger != null) { _logger.debug("%1$s Received non-gzipped data", this._logPrefix); }
 						}
 
@@ -912,22 +920,16 @@ public final class CommManager {
 				// Construct the response instance
 				response = new Response(
 						buffer.toByteArray(), 
-						okResponse.headers().toMultimap(), 
-						okResponse.code(), 
+						urlConnection.getHeaderFields(), 
+						urlConnection.getResponseCode(), 
 						this._work.getRequest().getId(),
 						(int)(System.currentTimeMillis() - start),
 						_logger);
 				this._work.setResponse(response);
-				if(_logger != null) {
-					_logger.debug(
-							"%1$s Request finished with a %2$d response code via protocol %3$s", 
-							this._logPrefix, 
-							this._work.getResponse().getResponseCode(), 
-							okResponse.protocol().name());
-				}
+				if(_logger != null) { _logger.debug("%1$s Request finished with a %2$d response code", this._logPrefix, this._work.getResponse().getResponseCode()); }
 
 				// Update the work state based on the response
-				this.handleWorkUpdatesOnResponse(response);
+				this.handleWorkUpdatesOnResponse(response, urlConnection);
 
 			} catch (MalformedURLException e) {
 				this._work.setException(e);
@@ -942,6 +944,7 @@ public final class CommManager {
 
 				// Always clean up
 		        if(in != null) { try { in.close(); } catch(Exception e) {} }  // Exception suppression is OK here
+		        if(urlConnection != null) { try { urlConnection.disconnect(); } catch(Exception e) {} }  // Exception suppression is OK here
 				if(_logger != null) { _logger.debug("%1$s Processing took %2$d milliseconds", this._logPrefix, (System.currentTimeMillis() - start)); }
 			}
 
@@ -999,8 +1002,9 @@ public final class CommManager {
 		 * This can potentially result in work being queued for the future, cache entries being updated, etc.
 		 * <p>
 		 * @param response The {@link Response} that resulted from attempting the current work.
+		 * @param urlConnection The {@link HttpURLConnection} instance used for the network request.
 		 */
-		private void handleWorkUpdatesOnResponse(Response response) {
+		private void handleWorkUpdatesOnResponse(Response response, HttpURLConnection urlConnection) {
 
 			// Check for a response triggered retry or redirect
 			RetryProfile retryProfile = CommManager.this._retryPolicyProvider.shouldRetry(this._work, response);
@@ -1023,25 +1027,23 @@ public final class CommManager {
 
 			} else if(	((response.getResponseCode() == 301) || (response.getResponseCode() == 302) || (response.getResponseCode() == 303)) && 
 						(this._work.getRequest().getRedirectCount() < CommManager.this._redirectLimit) && 
-						(!CommManager.this._useBuiltInRedirectionSupport) )
+						(!urlConnection.getInstanceFollowRedirects()) )
 			{
 
 				// ************ REDIRECT ************
-				// Redirects are not being handled for us, so support "3xx Location" response triggered redirecting
+				// HttpURLConnection is not handling redirects for us, so support "3xx Location" response triggered redirecting
 				synchronized(_workManagmentLock) {
 					if(!this._work.isCancelled()) {
 						URI targetUri = response.getLocationFromHeaders(this._work.getRequest());
-						if(targetUri != null) {
-							if(_logger != null) { _logger.debug("%1$s Redirecting from %2$s to %3$s", this._logPrefix, this._work.getRequest().getUri().toString(), targetUri.toString()); }
-							this._work.getRequest().redirect(targetUri);  // This call increments the request redirect count
-			
-							// We process redirects through the retry queue (to be retried immediately)
-							this._work.updateRetryAfterTimestamp(0);
-							this._work.setState(Status.REDIRECTING);
-							this._work.addFutureTask(new FutureTask<Response>(new WorkCallable(this._work)));  // Add the future task for the redirect work
-							addWorkToQueue(this._work, ManagedQueue.RETRY);
-							_workManagmentLock.notify();
-						}
+						if(_logger != null) { _logger.debug("%1$s Redirecting from %2$s to %3$s", this._logPrefix, this._work.getRequest().getUri().toString(), targetUri.toString()); }
+						this._work.getRequest().redirect(targetUri);  // This call increments the request redirect count
+		
+						// We process redirects through the retry queue (to be retried immediately)
+						this._work.updateRetryAfterTimestamp(0);
+						this._work.setState(Status.REDIRECTING);
+						this._work.addFutureTask(new FutureTask<Response>(new WorkCallable(this._work)));  // Add the future task for the redirect work
+						addWorkToQueue(this._work, ManagedQueue.RETRY);
+						_workManagmentLock.notify();
 					}
 				}
 

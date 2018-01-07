@@ -156,9 +156,8 @@ public class Response implements Serializable {
 		URI location = null;
 		try {
 
-			List<String> locationHeaders = this.getHeader("Location");
-			if(locationHeaders != null) {
-				String locationStr = locationHeaders.get(0);
+			if((this._headers != null) && (this._headers.containsKey("Location")) && (this._headers.get("Location") != null) && (this._headers.get("Location").size() > 0)) {
+				String locationStr = this._headers.get("Location").get(0);
 				location = new URI(locationStr);
 
 				// Rewrite URI as absolute if needed
@@ -189,13 +188,12 @@ public class Response implements Serializable {
 
 		// Extract the "Retry-After" header (only support delta in seconds for now)
 		Long retryInSeconds = null;
-		List<String> retryAfterHeaders = this.getHeader("Retry-After");
-		if(retryAfterHeaders != null) {
+		if((this._headers != null) && (this._headers.containsKey("Retry-After")) && (this._headers.get("Retry-After").size() > 0)) {
 			String retryAfter = "";
 			try {
 
 				// Attempt to parse the value as a long first
-				retryAfter = retryAfterHeaders.get(0);
+				retryAfter = this._headers.get("Retry-After").get(0);
 				retryInSeconds = Long.parseLong(retryAfter);
 
 			} catch(Exception e) {
@@ -271,9 +269,8 @@ public class Response implements Serializable {
 	/** If we are able to resolve an ETag value form the headers of this {@link Response} instance then the ETag value is returned, otherwise NULL is returned. */
 	public String getETagFromHeaders() {
 		String eTag = null;
-		List<String> eTagHeaders = this.getHeader("ETag");
-		if(eTagHeaders != null) {
-			eTag = eTagHeaders.get(0);
+		if((this._headers != null) && (this._headers.containsKey("ETag")) && (this._headers.get("ETag") != null) && (this._headers.get("ETag").size() > 0)) {
+			eTag = this._headers.get("ETag").get(0);
 		}
 		return(eTag);
 	}
@@ -288,9 +285,8 @@ public class Response implements Serializable {
 
 		// Parse caching data from the headers (Cache-Control=no-cache, max-age={delta-seconds}):
 		//	Example:   Cache-Control=max-age=2300, public
-		List<String> cacheControlHeaders = this.getHeader("Cache-Control");
-		if(cacheControlHeaders != null) {
-			for(String cacheControl : cacheControlHeaders) {
+		if((this._headers != null) && (this._headers.containsKey("Cache-Control")) && (this._headers.get("Cache-Control") != null) && (this._headers.get("Cache-Control").size() > 0)) {
+			for(String cacheControl : this._headers.get("Cache-Control")) {
 				if((cacheControl != null) && (cacheControl.length() > 0)) {
 					for(String cacheDirective : cacheControl.split(",")) {
 						if(cacheDirective == null) { continue; }
@@ -312,24 +308,6 @@ public class Response implements Serializable {
 			}
 		}
 		return(resultMap);
-	}
-
-	/** Returns the values list for the give header name or null if there is no such header or the header has no values. */
-	private List<String> getHeader(String name) {
-		if(this._headers != null) {
-			List<String> headerValues = this._headers.get(name);
-			if((headerValues == null) || (headerValues.size() <= 0)) {
-				String nameLower = name.toLowerCase();
-				headerValues = this._headers.get(nameLower);
-				if((headerValues == null) || (headerValues.size() <= 0)) {
-					String nameUpper = name.toUpperCase();
-					headerValues = this._headers.get(nameUpper);
-				}
-				
-			}
-			return(headerValues);
-		}
-		return(null);
 	}
 
 	//*********************************************************************************************
