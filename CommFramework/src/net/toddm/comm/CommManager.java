@@ -879,7 +879,8 @@ public final class CommManager {
 				// Read the response
 				try {
 
-					if(urlConnection.getContentLength() > 0) {
+					// It would appear that getContentLength() can lie  :-(
+					//if(urlConnection.getContentLength() > 0) {
 						int readCount;
 						byte[] data = new byte[512];
 
@@ -908,7 +909,7 @@ public final class CommManager {
 						  buffer.write(data, 0, readCount);
 						}
 						buffer.flush();
-					}
+					//}
 
 				} catch(Exception e) {
 
