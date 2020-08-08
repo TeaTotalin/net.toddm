@@ -36,11 +36,11 @@ public class Request {
 		/** Standard HTTP GET */
 		GET, 
 		/** Standard HTTP POST */
-		POST
+		POST,
 		//HEAD, 
 		//OPTIONS, 
-		//PUT, 
-		//DELETE, 
+		//PUT,
+		DELETE
 		//TRACE
 	}
 
