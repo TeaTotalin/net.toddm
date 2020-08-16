@@ -3,12 +3,39 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>net.toddm</groupId>
 	<artifactId>CommFramework</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
-	<name>CommFramework</name>
+	<version>1.0.1</version>
+    <packaging>jar</packaging>
+
+    <name>${project.groupId}:${project.artifactId}</name>
 	<description>A highly compatible communications framework with support for things like response caching, failure retry, redirects, etc.</description>
+    <url>https://github.com/TeaTotalin/net.toddm/</url>
+
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
+
+     <licenses>
+        <license>
+            <name>The Apache Software License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>Todd Murchison</name>
+            <email>toddm@toddm.net</email>
+            <organization>Todd Murchison</organization>
+            <organizationUrl>https://github.com/TeaTotalin</organizationUrl>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>https://github.com/TeaTotalin/net.toddm.git</connection>
+        <developerConnection>https://github.com/TeaTotalin/net.toddm.git</developerConnection>
+        <url>https://github.com/TeaTotalin/net.toddm/tree/master</url>
+    </scm>
+
 	<build>
 		<sourceDirectory>src</sourceDirectory>
 		<testSourceDirectory>tests</testSourceDirectory>
@@ -21,6 +48,7 @@
 				</excludes>
 			</resource>
 		</resources>
+
 		<plugins>
 			<plugin>
 				<artifactId>maven-compiler-plugin</artifactId>
@@ -30,18 +58,82 @@
 					<target>1.7</target>
 				</configuration>
 			</plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.2.0</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.2.0</version>
+                <configuration>
+                    <source>8</source>
+                    <additionalparam>-Xdoclint:all -Xdoclint:-missing</additionalparam>
+                    <additionalOptions>-Xdoclint:all -Xdoclint:-missing</additionalOptions>
+                    <additionalJOptions>
+                        <additionalJOption>-Xdoclint:all</additionalJOption>
+                        <additionalJOption>-Xdoclint:-missing</additionalJOption>
+                    </additionalJOptions>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.0.0</version>
+                <executions>
+                    <execution>
+                        <id>copy</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <mkdir dir="deploy"/>
+                                <copy todir="deploy">
+                                    <fileset dir="target">
+                                        <include name="*.jar"/>
+                                    </fileset>
+                                </copy>
+                                <copy file="pom.xml" tofile="deploy\pom.xml"/>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
 		</plugins>
 	</build>
+
 	<dependencies>
-		<dependency>
-			<groupId>net.toddm</groupId>
-			<artifactId>CachingFramework</artifactId>
-			<version>0.0.1-SNAPSHOT</version>
-		</dependency>
+        <dependency>
+            <groupId>net.toddm</groupId>
+            <artifactId>CachingFramework</artifactId>
+            <version>1.0.0</version>
+        </dependency>
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
-			<version>3.8.1</version>
+			<version>4.13</version>
 		</dependency>
 	</dependencies>
 </project>

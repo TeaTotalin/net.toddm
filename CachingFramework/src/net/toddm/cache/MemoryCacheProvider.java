@@ -29,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * An implementation of the {@link CacheProvider} interface that is backed by runtime memory.
  * This cache will not persist across different instances of a process.
  * This caching implementation is thread safe.
- * This caching implementation ignores {@link CacheEntry.Priority} when doing LRU eviction.
+ * This caching implementation ignores {@link CacheEntry}.Priority when doing LRU eviction.
  * <p>
  * @author Todd S. Murchison
  */

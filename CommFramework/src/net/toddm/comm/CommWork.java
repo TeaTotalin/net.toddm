@@ -75,10 +75,12 @@ class CommWork implements Work {
 		if(method == null) { throw(new IllegalArgumentException("'method' can not be NULL")); }
 		if(requestPriority == null) { throw(new IllegalArgumentException("'requestPriority' can not be NULL")); }
 		if(cachingPriority == null) { throw(new IllegalArgumentException("'cachingPriority' can not be NULL")); }
-		if(cachingBehavior == null) { throw(new IllegalArgumentException("'cachingBehavior' can not be NULL")); }
-		if((postData != null) && (!Request.RequestMethod.POST.equals(method))) {
-			throw(new IllegalArgumentException("'method' must be 'POST' when 'postData' is provided"));
-		}
+        if(cachingBehavior == null) { throw(new IllegalArgumentException("'cachingBehavior' can not be NULL")); }
+        if((postData != null) && (postData.length > 0)) {
+            if((!Request.RequestMethod.POST.equals(method)) && (!Request.RequestMethod.PUT.equals(method))) {
+                throw(new IllegalArgumentException("'method' must be 'POST' or 'PUT' when 'postData' is provided"));
+            }
+        }
 
 		// Set our data members
 		this._state = Status.CREATED;

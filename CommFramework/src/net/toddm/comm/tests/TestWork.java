@@ -53,7 +53,7 @@ public class TestWork extends TestCase {
 				.setLoggingProvider(new DefaultLogger())
 				.create();
 
-		Work work = commManagerThatWillTimeout.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, false, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		Work work = commManagerThatWillTimeout.enqueueWork(new URI("https://toddm.net/"), RequestMethod.GET, null, null, false, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
         assertNotNull(work);
 
         try {
@@ -74,7 +74,7 @@ public class TestWork extends TestCase {
 				.setLoggingProvider(new DefaultLogger())
 				.create();
 
-		final SubmittableWork work1 = commManager.getWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		final SubmittableWork work1 = commManager.getWork(new URI("https://toddm.net/"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
 		final SubmittableWork work2 = commManager.getWork(new URI("http://toddm.net/art/index.html"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
 		final SubmittableWork work3 = commManager.getWork(new URI("http://toddm.net/ants/index.html"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
 		final SubmittableWork work4 = commManager.getWork(new URI("http://toddm.net/gravity/index.html"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
@@ -120,7 +120,7 @@ public class TestWork extends TestCase {
 				.setLoggingProvider(new DefaultLogger())
 				.create();
 
-		final SubmittableWork work1 = commManager.getWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		final SubmittableWork work1 = commManager.getWork(new URI("https://toddm.net/"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
 		final SubmittableWork work2 = commManager.getWork(new URI("http://toddm.net/art/index.html"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
 
 		DependentWorkListener dependentWorkListener = new DependentWorkListener() {
@@ -152,11 +152,11 @@ public class TestWork extends TestCase {
 				.setLoggingProvider(new DefaultLogger())
 				.create();
 
-		SubmittableWork work1 = commManager.getWork(new URI("http://www.toddm.net/one"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
-		SubmittableWork work2 = commManager.getWork(new URI("http://www.toddm.net/two"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
-		SubmittableWork work3 = commManager.getWork(new URI("http://www.toddm.net/three"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
-		SubmittableWork work4 = commManager.getWork(new URI("http://www.toddm.net/four"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
-		SubmittableWork work5 = commManager.getWork(new URI("http://www.toddm.net/five"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		SubmittableWork work1 = commManager.getWork(new URI("https://toddm.net/one"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		SubmittableWork work2 = commManager.getWork(new URI("https://toddm.net/two"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		SubmittableWork work3 = commManager.getWork(new URI("https://toddm.net/three"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		SubmittableWork work4 = commManager.getWork(new URI("https://toddm.net/four"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		SubmittableWork work5 = commManager.getWork(new URI("https://toddm.net/five"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
 
 		work1.setDependentWork(work2, null);
 		work2.setDependentWork(work3, null);

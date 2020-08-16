@@ -116,7 +116,7 @@ public class TestResponse extends TestCase {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
-		Work work = commManager.enqueueWork(new URI("http://httpbin.org/response-headers?Location=http%3A%2F%2Fwww.toddm.net%2F"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		Work work = commManager.enqueueWork(new URI("http://httpbin.org/response-headers?Location=https%3A%2F%2Ftoddm.net%2F"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
 		assertNotNull(work);
 
 		Response response = work.get();
@@ -124,7 +124,7 @@ public class TestResponse extends TestCase {
 		assertEquals(200, (int)response.getResponseCode());
 		URI locationHeaderValue = response.getLocationFromHeaders(work.getRequest());
 		assertNotNull(locationHeaderValue);
-		assertEquals("http://www.toddm.net/", locationHeaderValue.toString());
+		assertEquals("https://toddm.net/", locationHeaderValue.toString());
 	}
 
 	public void testGetLocationFromHeadersRelative() throws Exception {

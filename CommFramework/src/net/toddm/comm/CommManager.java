@@ -838,7 +838,8 @@ public final class CommManager {
 				}
 
 				// Add the POST body if we have one (this must be done before establishing the connection)
-				if(	(RequestMethod.POST.equals(this._work.getRequest().getMethod())) && 
+                if(((RequestMethod.POST.equals(this._work.getRequest().getMethod())) || 
+                    (RequestMethod.PUT.equals(this._work.getRequest().getMethod())) ) && 
 					(this._work.getRequest().getPostData() != null) && 
 					(this._work.getRequest().getPostData().length > 0) )
 				{

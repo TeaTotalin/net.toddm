@@ -4,6 +4,7 @@ build/
 export/
 log/
 target/
+deploy/
 pom.xml.tag
 pom.xml.releaseBackup
 pom.xml.versionsBackup
@@ -11,3 +12,13 @@ pom.xml.next
 release.properties
 dependency-reduced-pom.xml
 .settings
+
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# Local History for Visual Studio Code
+.history/

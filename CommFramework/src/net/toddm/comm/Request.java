@@ -39,7 +39,7 @@ public class Request {
 		POST,
 		//HEAD, 
 		//OPTIONS, 
-		//PUT,
+		PUT,
 		DELETE
 		//TRACE
 	}
@@ -78,11 +78,13 @@ public class Request {
 		// Validate parameters
 		if(uri == null) { throw(new IllegalArgumentException("'uri' can not be NULL")); }
 		if(method == null) { throw(new IllegalArgumentException("'method' can not be NULL")); }
-		if((postData != null) && (postData.length > 0) && (!Request.RequestMethod.POST.equals(method))) {
-			throw(new IllegalArgumentException("'method' must be 'POST' when 'postData' is provided"));
-		}
+        if((postData != null) && (postData.length > 0)) {
+            if((!Request.RequestMethod.POST.equals(method)) && (!Request.RequestMethod.PUT.equals(method))) {
+                throw(new IllegalArgumentException("'method' must be 'POST' or 'PUT' when 'postData' is provided"));
+            }
+        }
 
-		// Set members
+        // Set members
 		URI normalizedUri = uri.normalize();
 		this._method = method;
 		this._normalizedEndPoints.addFirst(normalizedUri);

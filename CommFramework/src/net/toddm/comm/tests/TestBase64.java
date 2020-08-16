@@ -16,10 +16,14 @@
 package net.toddm.comm.tests;
 
 import net.toddm.comm.Base64;
+
+import org.junit.Test;
+
 import junit.framework.TestCase;
 
 public class TestBase64 extends TestCase {
 
+    @Test
 	public void testEncodeSimple() throws Exception {
 
 		byte[] input = new String("the quick brown fox jumped over the lazy dog").getBytes("UTF-8");

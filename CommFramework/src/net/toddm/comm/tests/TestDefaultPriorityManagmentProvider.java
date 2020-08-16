@@ -20,7 +20,6 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 
-import junit.framework.Assert;
 import junit.framework.TestCase;
 import net.toddm.cache.CachePriority;
 import net.toddm.cache.DefaultLogger;
@@ -39,16 +38,16 @@ public class TestDefaultPriorityManagmentProvider extends TestCase {
 		// Get a Work object...
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
-		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, true, StartingPriority.LOW, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		Work work = commManager.enqueueWork(new URI("https://toddm.net/"), RequestMethod.GET, null, null, true, StartingPriority.LOW, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
 
 		// Get the Priority object instance created for the work
 		Priority testPriority = work.getRequestPriority();
 
 		// Create an instance of the default priority management provider
 		DefaultPriorityManagmentProvider priorityManagmentProvider = new DefaultPriorityManagmentProvider(new DefaultLogger());
-		Assert.assertEquals(StartingPriority.LOW.getPriorityValue(), testPriority.getValue());
+		assertEquals(StartingPriority.LOW.getPriorityValue(), testPriority.getValue());
 		priorityManagmentProvider.promotePriority(testPriority);
-		Assert.assertEquals(StartingPriority.LOW.getPriorityValue(), testPriority.getValue());
+		assertEquals(StartingPriority.LOW.getPriorityValue(), testPriority.getValue());
 		
 		// Hack the promotion interval so this unit test won't take so long
         Field field = DefaultPriorityManagmentProvider.class.getDeclaredField("_PromotionIntervalInMilliseconds");
@@ -59,20 +58,20 @@ public class TestDefaultPriorityManagmentProvider extends TestCase {
         // Test priority progression as we promote
         Thread.sleep(11);
 		priorityManagmentProvider.promotePriority(testPriority);
-		Assert.assertTrue(StartingPriority.LOW.getPriorityValue() > testPriority.getValue());
+		assertTrue(StartingPriority.LOW.getPriorityValue() > testPriority.getValue());
 
 		while(testPriority.getValue() > 1) {
 			int priorityCache = testPriority.getValue();
 	        Thread.sleep(11);
 			priorityManagmentProvider.promotePriority(testPriority);
-			Assert.assertEquals(priorityCache - 1, testPriority.getValue());
+			assertEquals(priorityCache - 1, testPriority.getValue());
 		}
 
 		// Attempt to promote too many times and ensure we don't exceed highest priority
-		Assert.assertEquals(1, testPriority.getValue());
+		assertEquals(1, testPriority.getValue());
         Thread.sleep(11);
 		priorityManagmentProvider.promotePriority(testPriority);
-		Assert.assertEquals(1, testPriority.getValue());
+		assertEquals(1, testPriority.getValue());
 
 		// Revert our hacked promotion interval
         field.set(null, promotionIntervalCache);
@@ -83,7 +82,7 @@ public class TestDefaultPriorityManagmentProvider extends TestCase {
 		// Get Priority object instances to test with by submitting work
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
-		Work work = commManager.enqueueWork(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, true, StartingPriority.LOW, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
+		Work work = commManager.enqueueWork(new URI("https://toddm.net/"), RequestMethod.GET, null, null, true, StartingPriority.LOW, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
 		Priority priorityLow = work.getRequestPriority();
 		work = commManager.enqueueWork(new URI("http://httpbin.org/status/200"), RequestMethod.GET, null, null, true, StartingPriority.MEDIUM, CachePriority.NORMAL, CacheBehavior.DO_NOT_CACHE);
 		Priority priorityMedium = work.getRequestPriority();
@@ -96,17 +95,17 @@ public class TestDefaultPriorityManagmentProvider extends TestCase {
 		priorityList.add(priorityHigh);
 		priorityList.add(priorityMedium);
 
-		Assert.assertEquals(StartingPriority.LOW.getPriorityValue(), priorityList.get(0).getValue());
-		Assert.assertEquals(StartingPriority.HIGH.getPriorityValue(), priorityList.get(1).getValue());
-		Assert.assertEquals(StartingPriority.MEDIUM.getPriorityValue(), priorityList.get(2).getValue());
+		assertEquals(StartingPriority.LOW.getPriorityValue(), priorityList.get(0).getValue());
+		assertEquals(StartingPriority.HIGH.getPriorityValue(), priorityList.get(1).getValue());
+		assertEquals(StartingPriority.MEDIUM.getPriorityValue(), priorityList.get(2).getValue());
 
 		// Sort and validate
 		DefaultPriorityManagmentProvider priorityManagmentProvider = new DefaultPriorityManagmentProvider(new DefaultLogger());
 		Collections.sort(priorityList, priorityManagmentProvider.getPriorityComparator());
 
-		Assert.assertEquals(StartingPriority.HIGH.getPriorityValue(), priorityList.get(0).getValue());
-		Assert.assertEquals(StartingPriority.MEDIUM.getPriorityValue(), priorityList.get(1).getValue());
-		Assert.assertEquals(StartingPriority.LOW.getPriorityValue(), priorityList.get(2).getValue());
+		assertEquals(StartingPriority.HIGH.getPriorityValue(), priorityList.get(0).getValue());
+		assertEquals(StartingPriority.MEDIUM.getPriorityValue(), priorityList.get(1).getValue());
+		assertEquals(StartingPriority.LOW.getPriorityValue(), priorityList.get(2).getValue());
 	}
 
 }

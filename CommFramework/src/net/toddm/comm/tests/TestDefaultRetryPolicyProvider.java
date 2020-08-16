@@ -121,10 +121,10 @@ public class TestDefaultRetryPolicyProvider extends TestCase {
 	/** A testing stub class for {@link Request}. */
 	private class RequestStub extends Request {
 		public RequestStub() throws URISyntaxException {
-			super(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, true);
+			super(new URI("https://toddm.net/"), RequestMethod.GET, null, null, true);
 		}
 		public RequestStub(boolean isIdempotent) throws URISyntaxException {
-			super(new URI("http://www.toddm.net/"), RequestMethod.GET, null, null, isIdempotent);
+			super(new URI("https://toddm.net/"), RequestMethod.GET, null, null, isIdempotent);
 		}
 	};
 	
