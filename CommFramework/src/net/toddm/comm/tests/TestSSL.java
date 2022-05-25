@@ -18,6 +18,8 @@ package net.toddm.comm.tests;
 import java.net.URI;
 import java.util.HashMap;
 
+import org.junit.Test;
+
 import net.toddm.cache.CachePriority;
 import net.toddm.cache.DefaultLogger;
 import net.toddm.comm.CacheBehavior;
@@ -32,6 +34,7 @@ import junit.framework.TestCase;
 
 public class TestSSL extends TestCase {
 
+    @Test
 	public void testGoodCert() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
@@ -44,6 +47,7 @@ public class TestSSL extends TestCase {
         assertEquals(200, (int)response.getResponseCode());
 	}
 
+    @Test
 	public void testBadCert() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();

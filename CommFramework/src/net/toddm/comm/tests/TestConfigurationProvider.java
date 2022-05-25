@@ -19,6 +19,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import org.junit.Test;
+
 import net.toddm.comm.ConfigurationException;
 import net.toddm.comm.ConfigurationProvider;
 import net.toddm.comm.MapConfigurationProvider;
@@ -26,7 +28,8 @@ import junit.framework.TestCase;
 
 public class TestConfigurationProvider extends TestCase {
 
-	public void testMapConfigurationProvider() throws Exception {
+    @Test
+    public void testMapConfigurationProvider() throws Exception {
 		Map<String, Object> config = new HashMap<String, Object>();
 		config.put("key_object", UUID.randomUUID());
 		config.put("key_string", "string value");
@@ -47,6 +50,7 @@ public class TestConfigurationProvider extends TestCase {
 	 * 		<li>config.put("key_boolean", true);
 	 * </ul>
 	 */
+    @Test
 	private void validateConfigurationProvider(ConfigurationProvider configProvider) {
 
 		try {

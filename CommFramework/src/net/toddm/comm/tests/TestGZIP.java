@@ -18,6 +18,8 @@ package net.toddm.comm.tests;
 import java.net.URI;
 import java.nio.charset.Charset;
 
+import org.junit.Test;
+
 import net.toddm.cache.CachePriority;
 import net.toddm.cache.DefaultLogger;
 import net.toddm.comm.CacheBehavior;
@@ -30,6 +32,7 @@ import junit.framework.TestCase;
 
 public class TestGZIP extends TestCase {
 
+    @Test
 	public void testGZIPResponse() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();

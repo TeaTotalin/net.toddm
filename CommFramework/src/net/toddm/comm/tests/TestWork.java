@@ -20,6 +20,8 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.concurrent.ExecutionException;
 
+import org.junit.Test;
+
 import net.toddm.cache.CachePriority;
 import net.toddm.cache.DefaultLogger;
 import net.toddm.comm.CacheBehavior;
@@ -37,6 +39,7 @@ import junit.framework.TestCase;
 
 public class TestWork extends TestCase {
 
+    @Test
 	public void testGetException() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
@@ -67,6 +70,7 @@ public class TestWork extends TestCase {
         assertTrue(work.getException() instanceof SocketTimeoutException);
 	}
 
+    @Test
 	public void testDependentWorkCallbackAllowsCurrentWork() throws Exception {
 
 		CommManager commManager = (new CommManager.Builder())
@@ -113,6 +117,7 @@ public class TestWork extends TestCase {
 		assertTrue(result4.isSuccessful());
 	}
 
+    @Test
 	public void testDependentWorkCallbackCancelsCurrentWork() throws Exception {
 
 		CommManager commManager = (new CommManager.Builder())
@@ -145,6 +150,7 @@ public class TestWork extends TestCase {
 		assertTrue(result2.isSuccessful());
 	}
 
+    @Test
 	public void testSetDependentWorkCyclicDependence() throws Exception {
 
 		CommManager commManager = (new CommManager.Builder())

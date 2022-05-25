@@ -17,11 +17,13 @@ package net.toddm.comm.tests;
 
 import net.toddm.comm.Base64;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import org.junit.Test;
 
-import junit.framework.TestCase;
-
-public class TestBase64 extends TestCase {
+public class TestBase64 {
 
     @Test
 	public void testEncodeSimple() throws Exception {
@@ -39,6 +41,7 @@ public class TestBase64 extends TestCase {
 		assertEquals("dGhlIHF1aWNrIGJyb3duIGZveCBqdW1wZWQgb3ZlciB0aGUgbGF6eSBkb2c=", output);
 	}
 
+    @Test
 	public void testEncodeComplex() throws Exception {
 
 		byte[] input = new String("┤╥,65♀635L2☻~32┐2◙⌠1j32┐53K_").getBytes("UTF-8");

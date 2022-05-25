@@ -23,6 +23,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import org.junit.Test;
+
 import junit.framework.TestCase;
 import net.toddm.cache.CachePriority;
 import net.toddm.cache.DefaultLogger;
@@ -41,6 +43,7 @@ import net.toddm.comm.Work;
 
 public class TestDefaultRetryPolicyProvider extends TestCase {
 
+    @Test
 	public void testShouldRetryOnError() throws Exception {
 		
 		DefaultRetryPolicyProvider retryPolicyProvider = new DefaultRetryPolicyProvider(new DefaultLogger());
@@ -59,6 +62,7 @@ public class TestDefaultRetryPolicyProvider extends TestCase {
 		assertFalse(retryProfile.shouldRetry());
 	}
 
+    @Test
 	public void testShouldRetryOnResponse() throws Exception {
 
 		DefaultRetryPolicyProvider retryPolicyProvider = new DefaultRetryPolicyProvider(new DefaultLogger());
@@ -76,6 +80,7 @@ public class TestDefaultRetryPolicyProvider extends TestCase {
 	}
 
 	/** Use http://httpbin.org/ to simulate specific response shapes for testing */
+    @Test
 	public void test503Handling() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
@@ -91,6 +96,7 @@ public class TestDefaultRetryPolicyProvider extends TestCase {
 	}
 
 	/** Use http://httpbin.org/ to simulate specific response shapes for testing */
+    @Test
 	public void test202Handling() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();

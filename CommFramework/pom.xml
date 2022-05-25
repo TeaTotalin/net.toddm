@@ -38,7 +38,7 @@
 
 	<build>
 		<sourceDirectory>src</sourceDirectory>
-		<testSourceDirectory>tests</testSourceDirectory>
+		<testSourceDirectory>src</testSourceDirectory>
 		<resources>
 			<resource>
 				<directory>resource</directory>
@@ -125,15 +125,19 @@
 	</build>
 
 	<dependencies>
+
         <dependency>
             <groupId>net.toddm</groupId>
             <artifactId>CachingFramework</artifactId>
             <version>1.0.0</version>
         </dependency>
-		<dependency>
-			<groupId>junit</groupId>
-			<artifactId>junit</artifactId>
-			<version>4.13</version>
-		</dependency>
-	</dependencies>
+
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13</version>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
 </project>

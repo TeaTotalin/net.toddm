@@ -21,6 +21,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.junit.Test;
+
 import junit.framework.TestCase;
 import net.toddm.cache.CachePriority;
 import net.toddm.cache.CacheProvider;
@@ -35,6 +37,7 @@ import net.toddm.comm.Work;
 
 public class TestRequest extends TestCase {
 
+    @Test
 	public void testRequest() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
@@ -52,6 +55,7 @@ public class TestRequest extends TestCase {
 		assertTrue(results.length() > 0);
 	}
 
+    @Test
 	public void testRequestCanceling() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
@@ -79,6 +83,7 @@ public class TestRequest extends TestCase {
         assertTrue(work.isDone());
 	}
 
+    @Test
 	public void testRequestRedirectAbsolute() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
@@ -92,6 +97,7 @@ public class TestRequest extends TestCase {
 		assertEquals(1, work.getRequest().getRedirectCount());
 	}
 
+    @Test
 	public void testRequestRedirectRelative() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
@@ -105,6 +111,7 @@ public class TestRequest extends TestCase {
 		assertEquals(3, work.getRequest().getRedirectCount());
 	}
 
+    @Test
 	public void testRequestWithHeaders() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
@@ -126,6 +133,7 @@ public class TestRequest extends TestCase {
 		assertTrue(results.length() > 0);
 	}
 
+    @Test
 	public void testRequestCachingHeaders() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
@@ -149,6 +157,7 @@ public class TestRequest extends TestCase {
         System.out.println("ETag from response headers: " + eTag);
 	}
 
+    @Test
 	public void testRequestWithCaching() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
@@ -183,6 +192,7 @@ public class TestRequest extends TestCase {
 		assertEquals(work.getId(), work2.getId());
 	}
 	
+    @Test
 	public void testNoCachePreventsCaching() throws Exception {
 
 		CacheProvider cacheProvider = new MemoryCacheProvider("testCache", 20, new DefaultLogger());
@@ -205,6 +215,7 @@ public class TestRequest extends TestCase {
         assertFalse(cacheProvider.containsKey(Integer.toString(work.getId()), true));
 	}
 
+    @Test
 	public void testDoNotCachePreventsCaching() throws Exception {
 
 		CacheProvider cacheProvider = new MemoryCacheProvider("testCache20w", 20, new DefaultLogger());
@@ -227,6 +238,7 @@ public class TestRequest extends TestCase {
         assertFalse(cacheProvider.containsKey(Integer.toString(work.getId()), true));
 	}
 
+    @Test
 	public void testGetOnlyFromCache() throws Exception {
 
 		CacheProvider cacheProvider = new MemoryCacheProvider("testCacheThr33", 20, new DefaultLogger());
@@ -258,6 +270,7 @@ public class TestRequest extends TestCase {
         assertEquals(responseTime, response.getResponseTimeMilliseconds());
 	}
 
+    @Test
 	public void testServerDirectedCache() throws Exception {
 
 		CacheProvider cacheProvider = new MemoryCacheProvider("testCache4our", 20, new DefaultLogger());
@@ -280,6 +293,7 @@ public class TestRequest extends TestCase {
         assertTrue(cacheProvider.containsKey(Integer.toString(work.getId()), true));
 	}
 
+    @Test
 	public void testMaxStaleBehavior() throws Exception {
 
 		CacheProvider cacheProvider = new MemoryCacheProvider("testCacheMaxStale", 20, new DefaultLogger());
@@ -320,6 +334,7 @@ public class TestRequest extends TestCase {
         assertEquals("net.toddm.comm.CachedWork", work.getClass().getName());
     }
     
+    @Test
     public void testPutRequest() throws Exception {
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
         CommManager commManager = commManagerBuilder.setName("TEST").setLoggingProvider(new DefaultLogger()).create();
@@ -339,6 +354,7 @@ public class TestRequest extends TestCase {
         assertEquals(200, (int)response.getResponseCode());
     }
 
+    @Test
 	public void testRequestEquality() throws Exception {
 
 		List<Work> testRequests = new ArrayList<Work>();

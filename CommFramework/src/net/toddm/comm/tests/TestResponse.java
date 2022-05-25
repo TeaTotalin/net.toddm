@@ -19,6 +19,8 @@ import java.net.URI;
 import java.util.Locale;
 import java.util.UUID;
 
+import org.junit.Test;
+
 import junit.framework.TestCase;
 import net.toddm.cache.CacheEntry;
 import net.toddm.cache.CachePriority;
@@ -38,11 +40,13 @@ public class TestResponse extends TestCase {
 	// I love httpbin.org. If it ever goes away, however, I'm in trouble with these test cases.
 	// Should probably build some proper unit tests (these are effectively functional tests) and use PowerMockito or something similar.
 
+    @Test
 	public void testInvalidateCache() throws Exception {
 		MemoryCacheProvider cache = new MemoryCacheProvider("testInvalidateCache", 20, new DefaultLogger());
 		validateInvalidateCache(cache);
 	}
 
+    @Test
 	public static void validateInvalidateCache(CacheProvider cache) throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
@@ -69,11 +73,13 @@ public class TestResponse extends TestCase {
         assertFalse(cache.containsKey(cacheKey, false));
 	}
 
+    @Test
 	public void testPurgeCache() throws Exception {
 		MemoryCacheProvider cache = new MemoryCacheProvider("testPurgeCache", 20, new DefaultLogger());
 		validatePurgeCache(cache);
 	}
 
+    @Test
 	public static void validatePurgeCache(CacheProvider cache) throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
@@ -112,6 +118,7 @@ public class TestResponse extends TestCase {
         assertFalse(cache.containsKey(cacheKey2, true));
 	}
 
+    @Test
 	public void testGetLocationFromHeadersAbsolute() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
@@ -127,6 +134,7 @@ public class TestResponse extends TestCase {
 		assertEquals("https://toddm.net/", locationHeaderValue.toString());
 	}
 
+    @Test
 	public void testGetLocationFromHeadersRelative() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
@@ -144,6 +152,7 @@ public class TestResponse extends TestCase {
 		assertEquals("http://httpbin.org/get?Location=/get", locationHeaderValue.toString());
 	}
 
+    @Test
 	public void testGetETagFromHeaders() throws Exception {
 
 		String eTag = UUID.randomUUID().toString();
@@ -160,6 +169,7 @@ public class TestResponse extends TestCase {
         assertEquals(eTag, response.getETagFromHeaders());
 	}
 
+    @Test
 	public void testGetTtlFromHeaders() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
@@ -174,6 +184,7 @@ public class TestResponse extends TestCase {
         assertEquals(100000, (long)response.getTtlFromHeaders());		
 	}
 
+    @Test
 	public void testGetMaxStaleFromHeaders() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
@@ -188,6 +199,7 @@ public class TestResponse extends TestCase {
         assertEquals(13000, (long)response.getMaxStaleFromHeaders());		
 	}
 
+    @Test
 	public void testShouldNotCacheDueToNoCacheDirective() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
@@ -201,6 +213,7 @@ public class TestResponse extends TestCase {
         assertTrue(response.shouldNotCacheDueToNoCacheDirective());
 	}
 
+    @Test
 	public void testGetRetryAfterSeconds() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
@@ -215,6 +228,7 @@ public class TestResponse extends TestCase {
         assertEquals(120, (long)response.getRetryAfter());
 	}
 
+    @Test
 	public void testGetRetryAfterHTTPDateInTheFuture() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
@@ -229,6 +243,7 @@ public class TestResponse extends TestCase {
         assertTrue(response.getRetryAfter() > 0);
 	}
 
+    @Test
 	public void testGetRetryAfterHTTPDateInThePast() throws Exception {
 
 		CommManager.Builder commManagerBuilder = new CommManager.Builder();
@@ -244,6 +259,7 @@ public class TestResponse extends TestCase {
 	}
 
 	// TODO: Find a better way to test 304, this currently requires manually examining the log after running
+    @Test
 	public void test304Responses() throws Exception {
 
 		MemoryCacheProvider cache = new MemoryCacheProvider("testCache", 20, new DefaultLogger());

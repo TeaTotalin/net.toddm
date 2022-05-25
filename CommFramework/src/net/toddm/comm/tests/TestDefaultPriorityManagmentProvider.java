@@ -20,6 +20,8 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 
+import org.junit.Test;
+
 import junit.framework.TestCase;
 import net.toddm.cache.CachePriority;
 import net.toddm.cache.DefaultLogger;
@@ -33,6 +35,7 @@ import net.toddm.comm.Work;
 
 public class TestDefaultPriorityManagmentProvider extends TestCase {
 
+    @Test
 	public void testPromotePriority() throws Exception {
 
 		// Get a Work object...
@@ -77,6 +80,7 @@ public class TestDefaultPriorityManagmentProvider extends TestCase {
         field.set(null, promotionIntervalCache);
 	}
 
+    @Test
 	public void testPriorityComparator() throws Exception {
 
 		// Get Priority object instances to test with by submitting work

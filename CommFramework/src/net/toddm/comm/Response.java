@@ -135,13 +135,32 @@ public class Response implements Serializable {
 	//*********************************************************************************************
 	// Header parsing helpers
 
+    /** Returns a list of all values found for the given header key from the given header collection, ignoring case, or NULL if no values can be resolved. */
+    private static List<String> getHeaderValuesIgnoreCase(String headerKey, Map<String, List<String>> headers) {
+        if(headers == null) { return(null); }
+		if((headerKey == null) || (headerKey.length() <= 0)) { return(null); }
+        for (String key : headers.keySet()) {
+            if(headerKey.equalsIgnoreCase(key)) {
+                List<String> values = headers.get(key);
+                if((values == null) || (values.size() <= 0)) { return(null); }
+                return(values);
+            }
+        }
+        return(null);
+    }
+
+    /** Returns the first value found for the given header key from the given header collection, ignoring case, or NULL if no value can be resolved. */
+    private static String getHeaderValueIgnoreCase(String headerKey, Map<String, List<String>> headers) {
+        List<String> values = getHeaderValuesIgnoreCase(headerKey, headers);
+        if((values != null) && (values.size() > 0)) {
+            return(values.get(0));
+        }
+        return(null);
+    }
+
 	/** Returns the value for the 'Content-Encoding' header from the given header collection, or NULL if no value can be resolved. */
 	public static String getContentEncoding(Map<String, List<String>> headers) {
-		String contentEncoding = null;
-        if(headers.containsKey("Content-Encoding")) {
-        	contentEncoding = headers.get("Content-Encoding").get(0);
-		}
-		return(contentEncoding);
+        return(getHeaderValueIgnoreCase("Content-Encoding", headers));
 	}
 
 	/**
@@ -156,11 +175,11 @@ public class Response implements Serializable {
 		URI location = null;
 		try {
 
-			if((this._headers != null) && (this._headers.containsKey("Location")) && (this._headers.get("Location") != null) && (this._headers.get("Location").size() > 0)) {
-				String locationStr = this._headers.get("Location").get(0);
-				location = new URI(locationStr);
+            String locationStr = getHeaderValueIgnoreCase("Location", this._headers);
+            if(locationStr != null) {
 
-				// Rewrite URI as absolute if needed
+                // Rewrite URI as absolute if needed
+				location = new URI(locationStr);
 				if(locationStr.trim().startsWith("/")) {
 					location = new URI(
 						request.getUri().getScheme(), 
@@ -188,15 +207,15 @@ public class Response implements Serializable {
 
 		// Extract the "Retry-After" header (only support delta in seconds for now)
 		Long retryInSeconds = null;
-		if((this._headers != null) && (this._headers.containsKey("Retry-After")) && (this._headers.get("Retry-After").size() > 0)) {
-			String retryAfter = "";
+
+        String retryAfter = getHeaderValueIgnoreCase("Retry-After", this._headers);
+        if(retryAfter != null) {
 			try {
 
-				// Attempt to parse the value as a long first
-				retryAfter = this._headers.get("Retry-After").get(0);
+                // Attempt to parse the value as a long first
 				retryInSeconds = Long.parseLong(retryAfter);
 
-			} catch(Exception e) {
+            } catch(Exception e) {
 				try {
 
 					// Parsing as a long failed so attempt to parse the value as an HTTP-date instead.
@@ -268,11 +287,7 @@ public class Response implements Serializable {
 
 	/** If we are able to resolve an ETag value form the headers of this {@link Response} instance then the ETag value is returned, otherwise NULL is returned. */
 	public String getETagFromHeaders() {
-		String eTag = null;
-		if((this._headers != null) && (this._headers.containsKey("ETag")) && (this._headers.get("ETag") != null) && (this._headers.get("ETag").size() > 0)) {
-			eTag = this._headers.get("ETag").get(0);
-		}
-		return(eTag);
+        return(getHeaderValueIgnoreCase("ETag", this._headers));
 	}
 
 	/**
@@ -285,14 +300,16 @@ public class Response implements Serializable {
 
 		// Parse caching data from the headers (Cache-Control=no-cache, max-age={delta-seconds}):
 		//	Example:   Cache-Control=max-age=2300, public
-		if((this._headers != null) && (this._headers.containsKey("Cache-Control")) && (this._headers.get("Cache-Control") != null) && (this._headers.get("Cache-Control").size() > 0)) {
-			for(String cacheControl : this._headers.get("Cache-Control")) {
+
+        List<String> cacheControlValues = getHeaderValuesIgnoreCase("Cache-Control", this._headers);
+        if(cacheControlValues != null) {
+			for(String cacheControl : cacheControlValues) {
 				if((cacheControl != null) && (cacheControl.length() > 0)) {
 					for(String cacheDirective : cacheControl.split(",")) {
 						if(cacheDirective == null) { continue; }
-						cacheDirective = cacheDirective.trim();
+						cacheDirective = cacheDirective.trim().toLowerCase();
 
-						// Branch between single-word directives and name-value pair directives
+                        // Branch between single-word directives and name-value pair directives
 						if(!cacheDirective.contains("=")) {
 							resultMap.put(cacheDirective, null);
 						} else {

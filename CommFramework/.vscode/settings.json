@@ -1,3 +1,14 @@
 {
-    "java.configuration.updateBuildConfiguration": "automatic"
+    "java.configuration.updateBuildConfiguration": "automatic",
+
+    "java.test.config": [
+        {
+            "name": "myConfiguration",
+            "workingDirectory": "${workspaceFolder}",
+            "args": [ "-c", "com.test" ],
+            "vmargs": [ "-Xmx512M" ],
+            "env": { "key": "value" },
+        }
+    ]
+
 }
