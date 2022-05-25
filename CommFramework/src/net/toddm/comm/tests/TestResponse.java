@@ -43,13 +43,8 @@ public class TestResponse extends TestCase {
     @Test
 	public void testInvalidateCache() throws Exception {
 		MemoryCacheProvider cache = new MemoryCacheProvider("testInvalidateCache", 20, new DefaultLogger());
-		validateInvalidateCache(cache);
-	}
 
-    @Test
-	public static void validateInvalidateCache(CacheProvider cache) throws Exception {
-
-		CommManager.Builder commManagerBuilder = new CommManager.Builder();
+        CommManager.Builder commManagerBuilder = new CommManager.Builder();
 		CommManager commManager = commManagerBuilder
 				.setName("testInvalidateCache")
 				.setCacheProvider(cache)

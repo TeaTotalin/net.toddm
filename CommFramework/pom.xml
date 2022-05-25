@@ -3,8 +3,14 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>net.toddm</groupId>
 	<artifactId>CommFramework</artifactId>
-	<version>1.0.1</version>
+	<version>1.0.2</version>
     <packaging>jar</packaging>
+
+    <!--
+        For details on how to publish an update to "Maven Centrial" see:
+                https://central.sonatype.org/publish/publish-manual/
+        GPG/PGP Key details can be found in your "Personal Vault". Searching your Wiki for "gpg" and "oss" also has details.
+     -->
 
     <name>${project.groupId}:${project.artifactId}</name>
 	<description>A highly compatible communications framework with support for things like response caching, failure retry, redirects, etc.</description>
@@ -136,7 +142,6 @@
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <version>4.13</version>
-            <scope>test</scope>
         </dependency>
 
     </dependencies>
